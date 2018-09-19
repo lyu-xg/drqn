@@ -105,15 +105,15 @@ def init_dqn(frame_shape, n_actions):
 
 def get_models(frame_shape, n_actions, init_model_fn):
     model = init_model_fn(frame_shape, n_actions)
-    targetModel = init_model_fn(fraem_shape, n_actions)
+    targetModel = init_model_fn(frame_shape, n_actions)
     copy_weights(model, targetModel)
     return model, targetModel
 
 def get_dqn_models(frame_shape, n_actions):
-    return get_models(frame_shape, n_actions, init_dqn_models)
+    return get_models(frame_shape, n_actions, init_dqn)
 
 def get_ddqn_models(frame_shape, n_actions):
-    return get_models(frame_shape, n_actions, init_ddqn_models)
+    return get_models(frame_shape, n_actions, init_ddqn)
 
 def fit_batch(model, target_model, batch, n_actions, discount=0.99):
     start_states, a, next_states, rewards, is_terminal = zip(*batch)
