@@ -1,7 +1,8 @@
 import gym
 import os
 import csv
-
+import signal
+import argparse
 import numpy as np
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
@@ -10,6 +11,13 @@ from buffer import TraceBuf
 from common import epsilon_at, downsample, to_grayscale, checkpoint_dir, checkpoint_exists
 from common_tf import checkpoint, load_checkpoint
 
+Exiting = 0
+def signal_handler(sig, frame):
+    global Exiting
+    print('signal captured, trying to save states.', flush=1)
+    Exiting += 1
+    if Exiting > 3:
+        raise SystemExit
 
 
 class Qnetwork():
@@ -135,9 +143,12 @@ def updateTarget(op_holder, sess):
 
 
 
-def train(trace_length, render_eval=False, h_size=512, update_freq=4, ckpt_freq=100000, summary_freq=1000, eval_freq=10000, batch_size=32, env_name='SpaceInvaders', total_iteration=5e7, pretrain_steps=50000):
-    # global exp_buf
-    env_name += 'NoFrameskip-v4'
+def train(trace_length, render_eval=False, h_size=512, update_freq=4,
+          ckpt_freq=100000, summary_freq=1000, eval_freq=10000,
+          batch_size=32, env_name='SpaceInvaders', total_iteration=5e7,
+          pretrain_steps=50000):
+    global Exiting
+    # env_name += 'NoFrameskip-v4'
     identity = 'stack={},env={},mod={}'.format(trace_length, env_name, 'drqn')
     
     
@@ -216,10 +227,11 @@ def train(trace_length, render_eval=False, h_size=512, update_freq=4, ckpt_freq=
             
         if i <= 0: continue
             
-        if not i % ckpt_freq:
+        if Exiting or not i % ckpt_freq:
             checkpoint(sess, saver, identity,
                        exp_buf, env, last_iteration, is_done, 
                        prev_life_count, action, state, S)
+            if Exiting: raise SystemExit
 
         if not i % (update_freq * 1000):
             updateTarget(updateOps, sess)
@@ -312,5 +324,12 @@ def evaluate(sess, mainQN, env_name, action_repeat=6, scenario_count=3, is_rende
     return np.mean(res), np.std(res)
 
 
+def main():
+    signal.signal(signal.SIGINT, signal_handler)
+    parser = argparse.ArgumentParser()
+    parser.add_argument('trace_length', action='store', type=int, default=10)
+    parser.add_argument('-e', '--env_name', action='store', default='SpaceInvadersNoFrameskip-v4')
+    train(**vars(parser.parse_args()))
+
 if __name__ == '__main__':
-    train(10, pretrain_steps=8000, render_eval=True)
+    main()

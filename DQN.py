@@ -242,7 +242,7 @@ def train(stack_size, env_name, load, save, runto_finish, model, total_iteration
                 raise SystemExit
         if save and not i%100000:
             checkpoint(exp_buf, frame_buf, model, env, (i, \
-                    is_done, prev_life_count, prev_action, prev_action_taken), identity)
+                       is_done, prev_life_count, prev_action, prev_action_taken), identity)
 
 def main():
     signal.signal(signal.SIGINT, signal_handler)
