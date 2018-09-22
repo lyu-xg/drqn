@@ -229,7 +229,7 @@ def train(trace_length, render_eval=False, h_size=512, update_freq=4,
             
         if Exiting or not i % ckpt_freq:
             checkpoint(sess, saver, identity,
-                       exp_buf, env, last_iteration, is_done, 
+                       exp_buf, env, i, is_done, 
                        prev_life_count, action, state, S)
             if Exiting: raise SystemExit
 
