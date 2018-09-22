@@ -18,11 +18,6 @@ def huber_loss(a, b, in_keras=True):
 def load_model_from(model_to_load):
     return load_model(model_to_load, custom_objects={'huber_loss': huber_loss})
 
-def copy_model(model):
-    """Returns a copy of a keras model. (by saving and reloading model)"""
-    model.save('tmp_model')
-    return load_model_from('tmp_model')
-
 def copy_weights(model1, model2):
     model2.set_weights(model1.get_weights())
 

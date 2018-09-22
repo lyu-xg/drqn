@@ -12,7 +12,7 @@ def checkpoint(sess, saver, identity, *args):
     saver.save(sess, ckpt_dir+'tf_vars.ckpt')
     for i, arg in enumerate(args):
         pickle.dump(arg, open(ckpt_dir + '{}.p'.format(i), 'wb'))
-    ptint('checkpoiting finished.')
+    print('checkpoiting finished.')
         
 def load_checkpoint(sess, saver, identity):
     print('loading from checkpoint')
