@@ -164,7 +164,8 @@ def train(stack_size, env_name, load, save, runto_finish, model, total_iteration
         (last_iteration, \
         is_done, prev_life_count, prev_action, prev_action_taken) = i
         A_n = env.action_space.n
-        target_model = copy_model(model)
+        _, target_model = MODELS[model](frame_shape, A_n)
+        copy_weights(model, target_model)
         start_time = current_time()
         print(last_iteration, is_done, prev_action_taken, prev_life_count)
     else:
