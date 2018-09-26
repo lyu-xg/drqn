@@ -103,17 +103,17 @@ def init_dqn(frame_shape, n_actions):
     model.compile(optimizer, loss=huber_loss)
     return model
 
-def get_models(frame_shape, n_actions, init_model_fn):
+def get_models(frame_shape, n_actions, init_model_fn=init_ddqn):
     model = init_model_fn(frame_shape, n_actions)
     targetModel = init_model_fn(frame_shape, n_actions)
     copy_weights(model, targetModel)
     return model, targetModel
 
-def get_dqn_models(frame_shape, n_actions):
-    return get_models(frame_shape, n_actions, init_dqn)
+# def get_dqn_models(frame_shape, n_actions):
+#     return get_models(frame_shape, n_actions, init_dqn)
 
-def get_ddqn_models(frame_shape, n_actions):
-    return get_models(frame_shape, n_actions, init_ddqn)
+# def get_ddqn_models(frame_shape, n_actions):
+#     return get_models(frame_shape, n_actions, init_ddqn)
 
 def fit_batch(model, target_model, batch, n_actions, discount=0.99):
     start_states, a, next_states, rewards, is_terminal = zip(*batch)
@@ -144,14 +144,14 @@ def fit_batch(model, target_model, batch, n_actions, discount=0.99):
 
 
 
-MODELS = {
-    'ddqn': get_ddqn_models,
-    'dqn':  get_dqn_models,
-    'DDQN': get_ddqn_models,
-    'DQN':  get_dqn_models,
-    # 'drqn': init_drqn,
-    # 'DRQN': init_drqn,
-}
+# MODELS = {
+#     'ddqn': get_ddqn_models,
+#     'dqn':  get_dqn_models,
+#     'DDQN': get_ddqn_models,
+#     'DQN':  get_dqn_models,
+#     # 'drqn': init_drqn,
+#     # 'DRQN': init_drqn,
+# }
 def train(stack_size, env_name, load, save, runto_finish, model, total_iteration=5e7):
     global Exiting
     identity = 'stack={},env={},mod={}'.format(stack_size, env_name, model)
@@ -164,14 +164,14 @@ def train(stack_size, env_name, load, save, runto_finish, model, total_iteration
         (last_iteration, \
         is_done, prev_life_count, prev_action, prev_action_taken) = i
         A_n = env.action_space.n
-        _, target_model = MODELS[model](frame_shape, A_n)
+        _, target_model = get_models(frame_shape, A_n)
         copy_weights(model, target_model)
         start_time = current_time()
         print(last_iteration, is_done, prev_action_taken, prev_life_count)
     else:
         env = gym.make(env_name)
         A_n = env.action_space.n
-        model, target_model = MODELS[model](frame_shape, A_n)
+        model, target_model = get_models(frame_shape, A_n)
         #, model_to_load='model-SI.h5')
         exp_buf = ExpBuf(size=MILLION)
         frame_buf = FrameBuf(size=stack_size)
@@ -183,6 +183,8 @@ def train(stack_size, env_name, load, save, runto_finish, model, total_iteration
         prev_action_taken = 0
 
     total_reward = 0
+
+    print(target_model)
 
     for i in range(last_iteration, int(total_iteration)):
         if is_done:
