@@ -190,7 +190,7 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=1000,
     
     for i in range(last_iteration, int(total_iteration)):
         if is_done:
-            exp_buf._flush()
+            exp_buf.flush_episode()
             S, prev_life_count = reset(env, exp_buf)
             state, action = sess.run((mainQN.rnn_state, mainQN.action), feed_dict={
                 mainQN.scalarInput: np.vstack(np.array(S)/255.0),

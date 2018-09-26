@@ -1,6 +1,9 @@
 import numpy as np
 from common import preprocess, step
 
+# class Transition:
+#     def __init__(self, )
+
 class ExpBuf:
     def __init__(self, size=1000000):
         # Pro-tip: when implementing a ring buffer, always allocate one extra element,
@@ -36,33 +39,35 @@ class ExpBuf:
         return np.array([self[i] for i in np.random.choice(len(self), size)])
     
 class TraceBuf:
-    def __init__(self, trace_length, size=10000):
+    def __init__(self, trace_length, size=400000):
         # uses the ring buf above to save episodes
         self.buf = ExpBuf(size=size)
+        self.episode_id = 0
         self.trans_cache = []
         self.trace_length = trace_length
     
-    def _flush(self):
+    def flush_episode(self):
         if len(self.trans_cache) >= self.trace_length:
             self.buf.append(np.array(self.trans_cache))
         self.trans_cache.clear()
+        self.episode_id += 1
     
     def append_trans(self, trans):
-        self.trans_cache.append(list(trans))
+        self.trans_cache.append(list(trans) + (self.episode_id,))
     
-    def append_episode(self, ep):
-        assert(len(ep) >= self.trace_length)
-        self.buf.append(ep)
-        
-    def slice_ep(self, ep):
-        anchor = np.random.randint(0, len(ep) + 1 - self.trace_length)
-        return ep[anchor:anchor+self.trace_length]
+    def sample_trans(self):
+        idx = np.random.randint(0, len(self.buf) - self.trace_length)
+        trans = self.buf[idx: idx + self.trace_length]
+        # if first transition's episode_id == last transition's episode_id
+        if trans[0][-1] == trans[-1][-1]:
+            return trans[:-1]
+        else:
+            print('trainsition miss, re-sampling.')
+            return self.sample_trans()
         
     def sample_traces(self, batch_size):
-        traces = np.array([self.slice_ep(e) 
-                           for e in self.buf.sample_batch(batch_size)])
-#         print(traces.shape)
-#         print(traces[0])
+        traces = np.array([self.sample_trans()
+                           for _ in range(batch_size)])
         return np.reshape(traces, (batch_size * self.trace_length, 5))
         
 class Logger:
