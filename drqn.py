@@ -143,7 +143,7 @@ def updateTarget(op_holder, sess):
 
 
 
-def train(trace_length, render_eval=False, h_size=512, target_update_freq=1000,
+def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
           ckpt_freq=100000, summary_freq=1000, eval_freq=10000,
           batch_size=32, env_name='SpaceInvaders', total_iteration=5e7,
           pretrain_steps=50000):
