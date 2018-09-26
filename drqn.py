@@ -82,7 +82,7 @@ class Qnetwork():
         self.Q = tf.reduce_sum(self.Qout * self.actions_onehot,
                                reduction_indices=1)
         
-        # only train on first half of trace per Lample & Chatlot 2016
+        # only train on first half of every trace per Lample & Chatlot 2016
         self.mask = tf.concat((tf.zeros((self.batch_size, self.trainLength//2)),
                                tf.ones((self.batch_size, self.trainLength//2))), 1)
         self.mask = tf.reshape(self.mask, [-1])
@@ -143,7 +143,7 @@ def updateTarget(op_holder, sess):
 
 
 
-def train(trace_length, render_eval=False, h_size=512, update_freq=4,
+def train(trace_length, render_eval=False, h_size=512, target_update_freq=1000,
           ckpt_freq=100000, summary_freq=1000, eval_freq=10000,
           batch_size=32, env_name='SpaceInvaders', total_iteration=5e7,
           pretrain_steps=50000):
@@ -171,6 +171,7 @@ def train(trace_length, render_eval=False, h_size=512, update_freq=4,
     if checkpoint_exists(identity):
         (exp_buf, env, last_iteration, is_done, 
          prev_life_count, action, state, S) = load_checkpoint(sess, saver, identity)
+        start_time = time.time()
     else:
         exp_buf = TraceBuf(trace_length, size=50000)
         last_iteration = 1 - pretrain_steps
@@ -233,53 +234,50 @@ def train(trace_length, render_eval=False, h_size=512, update_freq=4,
                        prev_life_count, action, state, S)
             if Exiting: raise SystemExit
 
-        if not i % (update_freq * 1000):
+        if not i % target_update_freq:
             updateTarget(updateOps, sess)
             cur_time = time.time()
-            print('[{}] took {} seconds to {} steps'.format(i, cur_time-start_time, str(update_freq*1000)))
+            print('[{}] took {} seconds to {} steps'.format(i, cur_time-start_time, target_update_freq))
             start_time = cur_time
 
-        if not i % update_freq:
-            # train batch
-            
-            state_train = (np.zeros((batch_size, h_size)),) * 2
+        #　TRAINING STARTS
+        state_train = (np.zeros((batch_size, h_size)),) * 2
 
-            trainBatch = exp_buf.sample_traces(batch_size)
-            
+        trainBatch = exp_buf.sample_traces(batch_size)
+        
 
-            Q1 = sess.run(mainQN.predict, feed_dict={
-                mainQN.scalarInput: np.vstack(trainBatch[:,3]/255.0),
-                mainQN.trainLength: trace_length,
-                mainQN.state_init: state_train,
-                mainQN.batch_size: batch_size
-            })
-            Q2 = sess.run(targetQN.Qout, feed_dict={
-                targetQN.scalarInput: np.vstack(trainBatch[:,3]/255.0),
-                targetQN.trainLength: trace_length,
-                targetQN.state_init: state_train,
-                targetQN.batch_size: batch_size
-            })
-            end_multiplier = - (trainBatch[:,4] - 1)
-            doubleQ = Q2[range(batch_size * trace_length), Q1]
-            targetQ = trainBatch[:,2] + (0.99 * doubleQ * end_multiplier)
-            
-            _, summary = sess.run((mainQN.updateModel, summaryOps), feed_dict={
-                mainQN.scalarInput:np.vstack(trainBatch[:,0]/255.0),
-                mainQN.targetQ: targetQ,
-                mainQN.actions: trainBatch[:,1],
-                mainQN.trainLength: trace_length,
-                mainQN.state_init: state_train,
-                mainQN.batch_size: batch_size
-            })
-            
-            if not i % summary_freq:
-                summary_writer.add_summary(summary, i)
-            if not i % eval_freq:
-                eval_res = np.array(evaluate(sess, mainQN, env_name, is_render=render_eval))
-                print(eval_res); print(eval_res.shape)
-                perf, perf_std = sess.run(evalOps, feed_dict={eval_summary_ph: eval_res})
-                summary_writer.add_summary(perf, i)
-                summary_writer.add_summary(perf_std, i)
+        Q1 = sess.run(mainQN.predict, feed_dict={
+            mainQN.scalarInput: np.vstack(trainBatch[:,3]/255.0),
+            mainQN.trainLength: trace_length,
+            mainQN.state_init: state_train,
+            mainQN.batch_size: batch_size
+        })
+        Q2 = sess.run(targetQN.Qout, feed_dict={
+            targetQN.scalarInput: np.vstack(trainBatch[:,3]/255.0),
+            targetQN.trainLength: trace_length,
+            targetQN.state_init: state_train,
+            targetQN.batch_size: batch_size
+        })
+        end_multiplier = - (trainBatch[:,4] - 1)
+        doubleQ = Q2[range(batch_size * trace_length), Q1]
+        targetQ = trainBatch[:,2] + (0.99 * doubleQ * end_multiplier)
+        
+        _, summary = sess.run((mainQN.updateModel, summaryOps), feed_dict={
+            mainQN.scalarInput:np.vstack(trainBatch[:,0]/255.0),
+            mainQN.targetQ: targetQ,
+            mainQN.actions: trainBatch[:,1],
+            mainQN.trainLength: trace_length,
+            mainQN.state_init: state_train,
+            mainQN.batch_size: batch_size
+        })
+        
+        if not i % summary_freq:
+            summary_writer.add_summary(summary, i)
+        if not i % eval_freq:
+            eval_res = np.array(evaluate(sess, mainQN, env_name, is_render=render_eval))
+            perf, perf_std = sess.run(evalOps, feed_dict={eval_summary_ph: eval_res})
+            summary_writer.add_summary(perf, i)
+            summary_writer.add_summary(perf_std, i)
     # In the end
     sess.close()
     env.close()
