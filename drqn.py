@@ -173,7 +173,7 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=1000,
          prev_life_count, action, state, S) = load_checkpoint(sess, saver, identity)
         start_time = time.time()
     else:
-        exp_buf = TraceBuf(trace_length, size=50000)
+        exp_buf = TraceBuf(trace_length, size=400000)
         last_iteration = 1 - pretrain_steps
         is_done = True
         prev_life_count = None
