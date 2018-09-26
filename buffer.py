@@ -53,7 +53,7 @@ class TraceBuf:
         self.episode_id += 1
     
     def append_trans(self, trans):
-        self.trans_cache.append(list(trans) + (self.episode_id,))
+        self.trans_cache.append(list(trans) + [self.episode_id])
     
     def sample_trans(self):
         idx = np.random.randint(0, len(self.buf) - self.trace_length)
