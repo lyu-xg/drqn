@@ -19,12 +19,14 @@ DOWNSAMPLE_SIZE = (110, 84)
 BATCH_SIZE = 32
 Exiting = 0
 
+
 def signal_handler(sig, frame):
     global Exiting
     print('signal captured, trying to save states.', flush=1)
     Exiting += 1
     if Exiting > 3:
         raise SystemExit
+
 
 def init_ddqn(frame_shape, n_actions):
     # With the functional API we need to define the inputs.
@@ -33,41 +35,45 @@ def init_ddqn(frame_shape, n_actions):
 
     # convert RGB color value from range [0,255] to [0,1]
     normalized = Lambda(lambda x: x / 255.0)(frames_input)
-        
-    conv_1 = Conv2D(32, (8, 8), strides=(4, 4), activation='relu', data_format='channels_first')(normalized)
-    
-    conv_2 = Conv2D(64, (4, 4), strides=(2, 2), activation='relu', data_format='channels_first')(conv_1)
-    
-    conv_3 = Conv2D(64, (3, 3), strides=(1, 1), activation='relu', data_format='channels_first')(conv_2)
-    
-    conv_3_V = Lambda(lambda x:x[:,:32,:,:])(conv_3)
-    conv_3_A = Lambda(lambda x:x[:,32:,:,:])(conv_3)
-    
+
+    conv_1 = Conv2D(32, (8, 8), strides=(4, 4), activation='relu',
+                    data_format='channels_first')(normalized)
+
+    conv_2 = Conv2D(64, (4, 4), strides=(2, 2), activation='relu',
+                    data_format='channels_first')(conv_1)
+
+    conv_3 = Conv2D(64, (3, 3), strides=(1, 1), activation='relu',
+                    data_format='channels_first')(conv_2)
+
+    conv_3_V = Lambda(lambda x: x[:, :32, :, :])(conv_3)
+    conv_3_A = Lambda(lambda x: x[:, 32:, :, :])(conv_3)
+
     # Flattening the second convolutional layer.
     conv_flattened_V = Flatten()(conv_3_V)
     conv_flattened_A = Flatten()(conv_3_A)
-    
-    
+
     hidden_V = Dense(512, activation='relu')(conv_flattened_V)
     hidden_A = Dense(512, activation='relu')(conv_flattened_A)
-    
+
     output_V = Dense(1)(hidden_V)
     output_A = Dense(n_actions)(hidden_A)
-    
+
     # combine the two streams: value and advantages
     def combine_V_A(V_A):
         V, A = V_A
         A -= K.mean(A)
         A += V
         return A
-    
-    output = Lambda(combine_V_A, output_shape=(n_actions,))([output_V, output_A])
+
+    output = Lambda(combine_V_A, output_shape=(
+        n_actions,))([output_V, output_A])
     # Finally, we multiply the output by the mask!
     filtered_output = multiply([output, actions_input])
-    
+
     print(filtered_output.shape)
 
-    model = Model(inputs=[frames_input, actions_input], outputs=filtered_output)
+    model = Model(inputs=[frames_input, actions_input],
+                  outputs=filtered_output)
     optimizer = RMSprop(lr=0.00025, rho=0.95, epsilon=0.01)
     model.compile(optimizer, loss=huber_loss)
     return model
@@ -80,28 +86,33 @@ def init_dqn(frame_shape, n_actions):
 
     # Assuming that the input frames are still encoded from 0 to 255. Transforming to [0, 1].
     normalized = Lambda(lambda x: x / 255.0)(frames_input)
-        
-    conv_1 = Conv2D(32, (8, 8), strides=(4, 4), activation='relu', data_format='channels_first')(normalized)
-    
-    conv_2 = Conv2D(64, (4, 4), strides=(2, 2), activation='relu', data_format='channels_first')(conv_1)
-    
-    conv_3 = Conv2D(64, (3, 3), strides=(1, 1), activation='relu', data_format='channels_first')(conv_2)
-    
+
+    conv_1 = Conv2D(32, (8, 8), strides=(4, 4), activation='relu',
+                    data_format='channels_first')(normalized)
+
+    conv_2 = Conv2D(64, (4, 4), strides=(2, 2), activation='relu',
+                    data_format='channels_first')(conv_1)
+
+    conv_3 = Conv2D(64, (3, 3), strides=(1, 1), activation='relu',
+                    data_format='channels_first')(conv_2)
+
     # Flattening the second convolutional layer.
     conv_flattened = Flatten()(conv_3)
-    
+
     # "The final hidden layer is fully-connected and consists of 256 rectifier units."
     hidden = Dense(512, activation='relu')(conv_flattened)
-    
+
     # "The output layer is a fully-connected linear layer with a single output for each valid action."
     output = Dense(n_actions)(hidden)
     # Finally, we multiply the output by the mask!
     filtered_output = multiply([output, actions_input])
 
-    model = Model(inputs=[frames_input, actions_input], outputs=filtered_output)
+    model = Model(inputs=[frames_input, actions_input],
+                  outputs=filtered_output)
     optimizer = RMSprop(lr=0.00025, rho=0.95, epsilon=0.01)
     model.compile(optimizer, loss=huber_loss)
     return model
+
 
 def get_models(frame_shape, n_actions, init_model_fn=init_ddqn):
     model = init_model_fn(frame_shape, n_actions)
@@ -115,6 +126,7 @@ def get_models(frame_shape, n_actions, init_model_fn=init_ddqn):
 # def get_ddqn_models(frame_shape, n_actions):
 #     return get_models(frame_shape, n_actions, init_ddqn)
 
+
 def fit_batch(model, target_model, batch, n_actions, discount=0.99):
     start_states, a, next_states, rewards, is_terminal = zip(*batch)
 
@@ -127,7 +139,8 @@ def fit_batch(model, target_model, batch, n_actions, discount=0.99):
         model.predict([next_states, np.ones((len(batch), n_actions))]),
         axis=1)
     # First, predict the Q values of the next states. Note how we are passing ones as the mask.
-    next_Q_values = target_model.predict([next_states, one_hot(next_actions, n_actions)])
+    next_Q_values = target_model.predict(
+        [next_states, one_hot(next_actions, n_actions)])
 
     # TRY IT OUT AND TRAIN
 
@@ -141,7 +154,6 @@ def fit_batch(model, target_model, batch, n_actions, discount=0.99):
         [start_states, actions], actions * Q_values[:, None],
         epochs=1, batch_size=BATCH_SIZE, verbose=0, shuffle=False
     )
-
 
 
 # MODELS = {
@@ -161,8 +173,8 @@ def train(stack_size, env_name, load, save, runto_finish, model, total_iteration
     if checkpoint_exists(identity) and load:
         exp_buf, frame_buf, model, env, i = load_checkpoint(identity)
         print(i)
-        (last_iteration, \
-        is_done, prev_life_count, prev_action, prev_action_taken) = i
+        (last_iteration,
+         is_done, prev_life_count, prev_action, prev_action_taken) = i
         A_n = env.action_space.n
         _, target_model = get_models(frame_shape, A_n)
         copy_weights(model, target_model)
@@ -190,30 +202,31 @@ def train(stack_size, env_name, load, save, runto_finish, model, total_iteration
         if is_done:
             # env.render()
             prev_life_count = reset(env, frame_buf)
-        
+
         epsilon = epsilon_at(i)
-        if prev_action_taken < 3: # take same action 3 times.
+        if prev_action_taken < 3:  # take same action 3 times.
             action = prev_action
         elif np.random.random() < epsilon:
             # note that during pre-run, i < 0, therefore epsilon > 1
             action = env.action_space.sample()
         else:
-            action = np.argmax(model.predict([[frame_buf.toarray()],np.ones((1,A_n))]))
+            action = np.argmax(model.predict(
+                [[frame_buf.toarray()], np.ones((1, A_n))]))
 
         prev_action = action
         prev_action_taken = (prev_action_taken + 1) % 4
-        
+
         new_frame, reward, is_done, life_count = step(env, action, clip=False)
-        
+
         exp_buf.append((list(frame_buf),
                         action,
                         list(frame_buf.append(new_frame)),
                         np.sign(reward),
-                        (prev_life_count and life_count<prev_life_count) or is_done))
-        
+                        (prev_life_count and life_count < prev_life_count) or is_done))
+
         prev_action = action
         prev_life_count = life_count
-        
+
         total_reward += reward
 
         if i == 0:
@@ -222,42 +235,48 @@ def train(stack_size, env_name, load, save, runto_finish, model, total_iteration
 
         if i >= 0:
             # TODO this effects the timer
-            history = fit_batch(model, target_model, exp_buf.sample_batch(BATCH_SIZE), A_n)
+            history = fit_batch(model, target_model,
+                                exp_buf.sample_batch(BATCH_SIZE), A_n)
             loss = history.history['loss'][0]
         else:
             loss = 0
-        
-        if not i%1000:
+
+        if not i % 1000:
             # env.render()
             copy_weights(model, target_model)
-            m, std = evaluate(model, env_name, scenario_count=10)
-            if i>0:
-                print_time_estimate(start_time, iteration=(i-last_iteration), total=(total_iteration-last_iteration))
+            m, std = evaluate(model, env_name, scenario_count=3)
+            if i > 0:
+                print_time_estimate(start_time, iteration=(
+                    i-last_iteration), total=(total_iteration-last_iteration))
             summary = (i, total_reward, epsilon, loss, m, std)
-            print('frame={}, total_reward={}, ε={:.2f}, loss={}, performance={}, std={:.2f}'.format(*summary), flush=True)
+            print('frame={}, total_reward={}, ε={:.2f}, loss={}, performance={}, std={:.2f}'.format(
+                *summary), flush=True)
             logger.log(','.join(map(str, summary)))
             total_reward = 0
-            if Exiting or not runto_finish and i>0 and current_time() - start_time >= 84600:
+            if Exiting or not runto_finish and i > 0 and current_time() - start_time >= 84600:
                 logger._flush()
                 if save:
-                    checkpoint(exp_buf, frame_buf, model, env, (i, \
-                        is_done, prev_life_count, prev_action, prev_action_taken), identity)
+                    checkpoint(exp_buf, frame_buf, model, env, (i,
+                                                                is_done, prev_life_count, prev_action, prev_action_taken), identity)
                 raise SystemExit
-        if save and not i%100000:
-            checkpoint(exp_buf, frame_buf, model, env, (i, \
-                       is_done, prev_life_count, prev_action, prev_action_taken), identity)
+        if save and not i % 100000:
+            checkpoint(exp_buf, frame_buf, model, env, (i,
+                                                        is_done, prev_life_count, prev_action, prev_action_taken), identity)
+
 
 def main():
     signal.signal(signal.SIGINT, signal_handler)
     parser = argparse.ArgumentParser()
     parser.add_argument('stack_size', action='store', type=int, default=4)
-    parser.add_argument('-e', '--env_name', action='store', default='SpaceInvadersNoFrameskip-v4')
+    parser.add_argument('-e', '--env_name', action='store',
+                        default='SpaceInvadersNoFrameskip-v4')
     parser.add_argument('-l', '--load', type=int, default=1)
     parser.add_argument('-s', '--save', type=int, default=1)
     parser.add_argument('-f', '--runto_finish', type=int, default=0)
     parser.add_argument('-m', '--model', action='store', default='ddqn')
     # parser.add_argument('total_iteration', action='store', type=int, default=50000000)
     train(**vars(parser.parse_args()))
+
 
 if __name__ == '__main__':
     main()
