@@ -1,6 +1,4 @@
 import gym
-import os
-import csv
 import signal
 import argparse
 import numpy as np
@@ -181,7 +179,7 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
 
     sess.run(init)
 
-    updateTarget(updateOps, sess)
+    sess.run(opdateOps)
     summaryOps = tf.summary.merge_all()
 
     eval_summary_ph = tf.placeholder(tf.float32, shape=(2,), name='evaluation')
@@ -204,7 +202,7 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
             s, r, is_done, info = env.step(action)
             s, life_count = preprocess(s), info['ale.lives']
             exp_buf.append_trans((
-                S[-1], action, np.sign(r), s,
+                S[-1], action, r, s,  # not cliping reward (huber loss)
                 (prev_life_count and life_count < prev_life_count or is_done)
             ))
             S.append(s)
@@ -315,7 +313,6 @@ def evaluate(sess, mainQN, env_name, action_repeat=6, scenario_count=3, is_rende
         while not t:
             S.clear()
             for _ in range(action_repeat):
-                #                 print(action)
                 frame, r, t, _ = env.step(action)
                 R += r
                 S += (preprocess(frame),)

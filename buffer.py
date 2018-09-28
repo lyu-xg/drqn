@@ -38,34 +38,31 @@ class ExpBuf:
 
 
 class TraceBuf:
-    def __init__(self, trace_length, size=400000):
+    def __init__(self, trace_length, size=10000):
         # uses the ring buf above to save episodes
         self.buf = ExpBuf(size=size)
-        self.episode_id = 0
         self.trans_cache = []
         self.trace_length = trace_length
 
-    def flush_episode(self):
+    def _flush(self):
         if len(self.trans_cache) >= self.trace_length:
             self.buf.append(np.array(self.trans_cache))
         self.trans_cache.clear()
-        self.episode_id += 1
 
     def append_trans(self, trans):
-        self.trans_cache.append(list(trans) + [self.episode_id])
+        self.trans_cache.append(list(trans))
 
-    def sample_trans(self):
-        idx = np.random.randint(0, len(self.buf) - self.trace_length)
-        # if first transition's episode_id == last transition's episode_id
-        if self.buf[idx][-1] == self.buf[idx+self.trace_length-1][-1]:
-            return [self.buf[i] for i in range(idx, idx+self.trace_length)]
-        else:
-            print('trainsition miss, re-sampling.')
-            return self.sample_trans()
+    def append_episode(self, ep):
+        assert(len(ep) >= self.trace_length)
+        self.buf.append(ep)
+
+    def slice_ep(self, ep):
+        anchor = np.random.randint(0, len(ep) + 1 - self.trace_length)
+        return ep[anchor:anchor+self.trace_length]
 
     def sample_traces(self, batch_size):
-        traces = np.array([self.sample_trans()
-                           for _ in range(batch_size)])
+        traces = np.array([self.slice_ep(e)
+                           for e in self.buf.sample_batch(batch_size)])
         return np.reshape(traces, (batch_size * self.trace_length, 5))
 
 

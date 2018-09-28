@@ -221,7 +221,7 @@ def train(stack_size, env_name, load, save, runto_finish, model, total_iteration
         exp_buf.append((list(frame_buf),
                         action,
                         list(frame_buf.append(new_frame)),
-                        np.sign(reward),
+                        reward,  # not cliping reward since we are using huber loss
                         (prev_life_count and life_count < prev_life_count) or is_done))
 
         prev_action = action
