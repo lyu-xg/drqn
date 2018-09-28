@@ -179,7 +179,7 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
 
     sess.run(init)
 
-    sess.run(opdateOps)
+    sess.run(updateOps)
     summaryOps = tf.summary.merge_all()
 
     eval_summary_ph = tf.placeholder(tf.float32, shape=(2,), name='evaluation')

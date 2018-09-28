@@ -44,7 +44,7 @@ class TraceBuf:
         self.trans_cache = []
         self.trace_length = trace_length
 
-    def _flush(self):
+    def flush_episode(self):
         if len(self.trans_cache) >= self.trace_length:
             self.buf.append(np.array(self.trans_cache))
         self.trans_cache.clear()
