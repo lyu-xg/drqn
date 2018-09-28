@@ -1,16 +1,16 @@
-import gym
 import signal
+import time
 import argparse
 import numpy as np
 import tensorflow as tf
-import tensorflow.contrib.slim as slim
 
 from buffer import TraceBuf
-from common import epsilon_at, downsample, to_grayscale, checkpoint_dir, checkpoint_exists
+from common import epsilon_at, checkpoint_dir, checkpoint_exists
 from common_tf import checkpoint, load_checkpoint
+from myenv import Env
+from drqn_network import Qnetwork
 
 Exiting = 0
-
 
 def signal_handler(sig, frame):
     global Exiting
@@ -18,109 +18,6 @@ def signal_handler(sig, frame):
     Exiting += 1
     if Exiting > 3:
         raise SystemExit
-
-
-class Qnetwork():
-    def __init__(self, h_size, a_size, rnn_cell, scopeName):
-        self.h_size, self.a_size = h_size, a_size
-        self.scalarInput = tf.placeholder(shape=[None, 7056], dtype=tf.float32)
-        self.batch_size = tf.placeholder(dtype=tf.int32, shape=[])
-        self.trainLength = tf.placeholder(dtype=tf.int32, shape=[])
-
-        self.frameShape = tf.constant((84, 84, 1), dtype=tf.int32)
-#         self.frames = tf.reshape(self.scalarInput, tf.concat(([self.batch_size*self.trainLength], self.frameShape), 0))
-        self.frames = tf.reshape(self.scalarInput, [-1, 84, 84, 1])
-        self.conv1 = slim.convolution2d(
-            inputs=self.frames, num_outputs=32,
-            kernel_size=(8, 8), stride=(4, 4), padding='VALID',
-            biases_initializer=None, scope=scopeName+'_conv1'
-        )
-        self.conv2 = slim.convolution2d(
-            inputs=self.conv1, num_outputs=64,
-            kernel_size=(4, 4), stride=(2, 2), padding='VALID',
-            biases_initializer=None, scope=scopeName+'_conv2'
-        )
-        self.conv3 = slim.convolution2d(
-            inputs=self.conv2, num_outputs=64,
-            kernel_size=(3, 3), stride=(1, 1), padding='VALID',
-            biases_initializer=None, scope=scopeName+'_conv3'
-        )
-        self.conv4 = slim.convolution2d(
-            inputs=self.conv3, num_outputs=h_size,
-            kernel_size=(7, 7), stride=(1, 1), padding='VALID',
-            biases_initializer=None, scope=scopeName+'_conv4'
-        )
-
-        self.convFlat = tf.reshape(
-            slim.flatten(self.conv4), [self.batch_size, self.trainLength, h_size])
-
-        self.state_init = rnn_cell.zero_state(self.batch_size, tf.float32)
-        self.rnn, self.rnn_state = tf.nn.dynamic_rnn(
-            inputs=self.convFlat, cell=rnn_cell, dtype=tf.float32,
-            initial_state=self.state_init, scope=scopeName+'_rnn'
-        )
-        self.rnn = tf.reshape(self.rnn, shape=[-1, h_size])
-
-        self.streamA, self.streamV = tf.split(self.rnn, 2, axis=1)
-
-        self.AW = tf.Variable(tf.random_normal([h_size//2, a_size]))
-        self.VW = tf.Variable(tf.random_normal([h_size//2, 1]))
-        self.A = tf.matmul(self.streamA, self.AW)
-        self.V = tf.matmul(self.streamV, self.VW)
-
-        self.salience = tf.gradients(self.A, self.scalarInput)
-
-        self.Qout = self.V + \
-            (self.A - tf.reduce_mean(self.A, axis=1, keepdims=True))
-        self.predict = tf.argmax(self.Qout, 1)
-        self.action = self.predict[-1]
-
-        self.targetQ = tf.placeholder(shape=[None], dtype=tf.float32)
-        self.actions = tf.placeholder(shape=[None], dtype=tf.int32)
-        self.actions_onehot = tf.one_hot(
-            self.actions, a_size, dtype=tf.float32)
-
-        self.Q = tf.reduce_sum(self.Qout * self.actions_onehot,
-                               reduction_indices=1)
-
-        # only train on first half of every trace per Lample & Chatlot 2016
-        self.mask = tf.concat((tf.zeros((self.batch_size, self.trainLength//2)),
-                               tf.ones((self.batch_size, self.trainLength//2))), 1)
-        self.mask = tf.reshape(self.mask, [-1])
-
-        self.loss = tf.losses.huber_loss(
-            self.Q * self.mask, self.targetQ * self.mask)
-
-        if scopeName == 'main':
-            tf.summary.scalar('loss', self.loss)
-            tf.summary.histogram('Q', self.Qout)
-            tf.summary.histogram('hidden', self.rnn_state)
-
-        self.trainer = tf.train.RMSPropOptimizer(
-            0.00025, momentum=0.95, epsilon=0.01)
-        self.updateModel = self.trainer.minimize(self.loss)
-
-
-# In[3]:
-
-
-def preprocess(s):
-    return downsample(to_grayscale(s[8:-12]), (84, 84)).reshape((7056,))
-
-
-def reset(env, buf, noop_max=30):
-    if buf.trans_cache:
-        buf._flush()
-    S = [preprocess(env.reset())]
-    life = None
-    for _ in range(np.random.randint(noop_max)):
-        s, r, t, l = env.step(0)
-        s, life = preprocess(s), l['ale.lives']
-        if t:
-            return reset(env, buf, noop_max)
-        buf.append_trans((S[-1], 0, r, s, t))
-        S.append(s)
-    return S, life
 
 
 def getTargetUpdateOps(tfVars):
@@ -151,8 +48,8 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
     # env_name += 'NoFrameskip-v4'
     identity = 'stack={},env={},mod={}'.format(trace_length, env_name, 'drqn')
 
-    env = gym.make(env_name)
-    a_size = env.action_space.n
+    env = Env(env_name=env_name, skip=4)
+    a_size = env.n_actions
 
     tf.reset_default_graph()
     cell = tf.nn.rnn_cell.LSTMCell(num_units=h_size)
@@ -170,7 +67,7 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
         (_, env, last_iteration, is_done,
          prev_life_count, action, state, S) = load_checkpoint(sess, saver, identity)
         start_time = time.time()
-    # else:
+    else:
         exp_buf = TraceBuf(trace_length, size=400000)
         last_iteration = 1 - pretrain_steps
         is_done = True
@@ -189,18 +86,13 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
     for i in range(last_iteration, int(total_iteration)):
         if is_done:
             exp_buf.flush_episode()
-            S, prev_life_count = reset(env, exp_buf)
-            state, action = sess.run((mainQN.rnn_state, mainQN.action), feed_dict={
-                mainQN.scalarInput: np.vstack(np.array(S)/255.0),
-                mainQN.trainLength: len(S),
-                mainQN.state_init: (np.zeros((1, h_size)),) * 2,
-                mainQN.batch_size: 1
-            })
+            s, r, prev_life_count = env.reset()
+            S = [s]
+            action, state = mainQN.get_action_and_next_state(sess, None, S)
 
         S = [S[-1]]
         for _ in range(4):
-            s, r, is_done, info = env.step(action)
-            s, life_count = preprocess(s), info['ale.lives']
+            s, r, is_done, life_count = env.step(action)
             exp_buf.append_trans((
                 S[-1], action, r, s,  # not cliping reward (huber loss)
                 (prev_life_count and life_count < prev_life_count or is_done)
@@ -208,18 +100,9 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
             S.append(s)
             prev_life_count = life_count
 
-        feed = {
-            mainQN.scalarInput: np.vstack(np.array(S[1:])/255.0),
-            mainQN.trainLength: 4,
-            mainQN.state_init: state,
-            mainQN.batch_size: 1
-        }
+        action, state = mainQN.get_action_and_next_state(sess, state, S)
         if np.random.random() < epsilon_at(i):
-            action = env.action_space.sample()
-            state = sess.run(mainQN.rnn_state, feed_dict=feed)
-        else:
-            action, state = sess.run(
-                (mainQN.action, mainQN.rnn_state), feed_dict=feed)
+            action = env.rand_action()
 
         if not i:
             start_time = time.time()
@@ -282,48 +165,23 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
             summary_writer.add_summary(perf_std, i)
     # In the end
     sess.close()
-    env.close()
     checkpoint(sess, saver, identity)
 
-
-import time
-
-
-def evaluate(sess, mainQN, env_name, action_repeat=6, scenario_count=3, is_render=False):
+def evaluate(sess, mainQN, env_name, skip=6, scenario_count=3, is_render=False):
     start_time = time.time()
-    env = gym.make(env_name)
-    # step 6 frame with same action, and use trace size = 6
-
-    def get_action(S):
-        return sess.run(mainQN.action, feed_dict={
-            mainQN.scalarInput: np.vstack(np.array(S)/255.0),
-            mainQN.trainLength: len(S),
-            mainQN.state_init: (np.zeros((1, mainQN.h_size)),) * 2,
-            mainQN.batch_size: 1
-        })
-
-    def run_scenario():
-        S, R, t = [preprocess(env.reset())], 0, 0
-        noop = np.random.randint(30)
-        for _ in range(noop):
-            frame, r, t, _ = env.step(0)
-            S += (preprocess(frame),)
-            R += r
-        action = get_action(S)
+    env = Env(env_name=env_name, skip=skip)
+    def total_scenario_reward():
+        (s, R, _), t, state = env.reset(), False, None
         while not t:
-            S.clear()
-            for _ in range(action_repeat):
-                frame, r, t, _ = env.step(action)
-                R += r
-                S += (preprocess(frame),)
-                if is_render:
-                    env.render()
-            action = get_action(S)
+            action, state = mainQN.get_action_and_next_state(sess, state, [s])
+            s, r, t, _ = env.step(action)
+            R += r
+            if is_render:
+                env.render()
         return R
 
-    res = np.array([run_scenario() for _ in range(scenario_count)])
+    res = np.array([total_scenario_reward() for _ in range(scenario_count)])
     print(time.time() - start_time, 'seconds to evaluate')
-    env.close()
     return np.mean(res), np.std(res)
 
 

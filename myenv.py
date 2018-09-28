@@ -13,26 +13,29 @@ def downsample(frame, shape):
     return cv2.resize(frame, tuple(reversed(shape)))
 
 
-def preprocess(frame, flicker=False, flicker_prob=0, shape=(110, 84)):
-    if flicker and np.random.random() < flicker_prob:
-        return np.zeros(shape)
-    return to_grayscale(downsample(frame, shape))
+def preprocess(s, flicker_prob=0):
+    if flicker_prob and np.random.random() < flicker_prob:
+        return np.zeros((84, 84))
+    return downsample(to_grayscale(s[8:-12]), (84, 84)).reshape((7056,))
 
 
 class Env:
-    def __init__(self, env_name='SpaceInvaders', skip=4):
+    def __init__(self, env_name='SpaceInvaders', skip=4, noop=30):
         if '-' not in env_name:
             env_name += 'NoFrameskip-v4'
         self.env = gym.make(env_name)
         assert (skip >= 2)
         self.skip = skip
         self.n_actions = self.env.action_space.n
+        self.noop = noop
+
+    def rand_action(self):
+        return self.env.action_space.sample()
 
     def reset(self):
         frames, rewards = [preprocess(self.env.reset())], 0
-        for _ in range(self.skip - 1):
-            frame, reward, terminal, summary = self.env.step(
-                self.env.action_space.sample())
+        for _ in range(np.random.randint(self.skip - 1, self.noop)):
+            frame, reward, terminal, summary = self.env.step(self.rand_action())
             frames.append(preprocess(frame))
             if terminal:
                 return self.reset()
@@ -51,7 +54,10 @@ class Env:
         max_frame = (np.maximum(frames[-2], frames[-1])
                      if len(frames) > 1
                      else frames[0])
-        return max_frame, rewards, summary['ale.lives']
+        return max_frame, rewards, terminal, summary['ale.lives']
 
     def render(self):
         self.env.render()
+
+    def __del__(self):
+        self.env.close()
