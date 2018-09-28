@@ -256,12 +256,16 @@ def train(stack_size, env_name, load, save, runto_finish, model, total_iteration
             if Exiting or not runto_finish and i > 0 and current_time() - start_time >= 84600:
                 logger._flush()
                 if save:
-                    checkpoint(exp_buf, frame_buf, model, env, (i,
-                                                                is_done, prev_life_count, prev_action, prev_action_taken), identity)
+                    checkpoint(exp_buf, frame_buf, model, env,
+                               (i, is_done, prev_life_count,
+                                prev_action, prev_action_taken),
+                               identity)
                 raise SystemExit
         if save and not i % 100000:
-            checkpoint(exp_buf, frame_buf, model, env, (i,
-                                                        is_done, prev_life_count, prev_action, prev_action_taken), identity)
+            checkpoint(exp_buf, frame_buf, model, env,
+                       (i, is_done, prev_life_count,
+                        prev_action, prev_action_taken),
+                       identity)
 
 
 def main():
