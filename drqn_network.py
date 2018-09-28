@@ -2,6 +2,7 @@ import numpy as np
 import tensorflow as tf
 import tensorflow.contrib.slim as slim
 
+
 class Qnetwork():
     def __init__(self, h_size, a_size, rnn_cell, scopeName):
         self.h_size, self.a_size = h_size, a_size

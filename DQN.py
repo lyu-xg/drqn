@@ -12,6 +12,12 @@ from evaluate import evaluate
 from common import *
 from common_keras import *
 
+import tensorflow as tf
+from keras.backend.tensorflow_backend import set_session
+config = tf.ConfigProto()
+# config.gpu_options.per_process_gpu_memory_fraction = 0.3
+config.gpu_options.allow_growth = True
+set_session(tf.Session(config=config))
 
 # global vars
 MILLION = int(1e6)

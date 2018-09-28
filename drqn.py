@@ -12,6 +12,7 @@ from drqn_network import Qnetwork
 
 Exiting = 0
 
+
 def signal_handler(sig, frame):
     global Exiting
     print('signal captured, trying to save states.', flush=1)
@@ -60,11 +61,13 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
     updateOps = getTargetUpdateOps(tf.trainable_variables())
     saver = tf.train.Saver(max_to_keep=5)
 
-    sess = tf.Session()
+    config = tf.ConfigProto()
+    config.gpu_options.allow_growth = True
+    sess = tf.Session(config=config)
     summary_writer = tf.summary.FileWriter('./log/' + identity, sess.graph)
 
     if checkpoint_exists(identity):
-        (_, env, last_iteration, is_done,
+        (exp_buf, env, last_iteration, is_done,
          prev_life_count, action, state, S) = load_checkpoint(sess, saver, identity)
         start_time = time.time()
     else:
@@ -145,6 +148,7 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
         doubleQ = Q2[range(batch_size * trace_length), Q1]
         targetQ = trainBatch[:, 2] + (0.99 * doubleQ * end_multiplier)
 
+        # print(targetQ.shape)
         _, summary = sess.run((mainQN.updateModel, summaryOps), feed_dict={
             mainQN.scalarInput: np.vstack(trainBatch[:, 0]/255.0),
             mainQN.targetQ: targetQ,
@@ -167,9 +171,11 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
     sess.close()
     checkpoint(sess, saver, identity)
 
+
 def evaluate(sess, mainQN, env_name, skip=6, scenario_count=3, is_render=False):
     start_time = time.time()
     env = Env(env_name=env_name, skip=skip)
+
     def total_scenario_reward():
         (s, R, _), t, state = env.reset(), False, None
         while not t:
