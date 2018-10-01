@@ -38,18 +38,22 @@ class ExpBuf:
 
 
 class TraceBuf:
-    def __init__(self, trace_length, size=10000):
+    def __init__(self, trace_length, scenario_size=10000):
         # uses the ring buf above to save episodes
-        self.buf = ExpBuf(size=size)
+        self.buf = ExpBuf(size=scenario_size)
         self.trans_cache = []
         self.trace_length = trace_length
 
-    def flush_episode(self):
+    def flush_scenario(self):
         if len(self.trans_cache) >= self.trace_length:
             self.buf.append(np.array(self.trans_cache))
         self.trans_cache.clear()
 
+    def get_cache_total_reward(self):
+        return sum(ep[2] for ep in self.trans_cache)
+
     def append_trans(self, trans):
+        # s_prime, a, r, s, t
         self.trans_cache.append(list(trans))
 
     def append_episode(self, ep):

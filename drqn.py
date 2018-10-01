@@ -42,7 +42,7 @@ def getTargetUpdateOps(tfVars):
 
 
 def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
-          ckpt_freq=100000, summary_freq=1000, eval_freq=10000,
+          ckpt_freq=500000, summary_freq=1000, eval_freq=10000,
           batch_size=32, env_name='SpaceInvaders', total_iteration=5e7,
           pretrain_steps=50000):
     global Exiting
@@ -64,6 +64,7 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
     config = tf.ConfigProto()
     config.gpu_options.allow_growth = True
     sess = tf.Session(config=config)
+    sess.run(init)
     summary_writer = tf.summary.FileWriter('./log/' + identity, sess.graph)
 
     if checkpoint_exists(identity):
@@ -71,24 +72,33 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
          prev_life_count, action, state, S) = load_checkpoint(sess, saver, identity)
         start_time = time.time()
     else:
-        exp_buf = TraceBuf(trace_length, size=400000)
+        exp_buf = TraceBuf(trace_length, scenario_size=2000)
         last_iteration = 1 - pretrain_steps
         is_done = True
         prev_life_count = None
         state = None
+        sess.run(updateOps)
 
-    sess.run(init)
-
-    sess.run(updateOps)
     summaryOps = tf.summary.merge_all()
 
     eval_summary_ph = tf.placeholder(tf.float32, shape=(2,), name='evaluation')
     evalOps = (tf.summary.scalar('performance', eval_summary_ph[0]),
                tf.summary.scalar('perform_std', eval_summary_ph[1]))
+    online_summary_ph = tf.placeholder(tf.float32, shape=(2,), name='online')
+    onlineOps = (tf.summary.scalar('online_performance', online_summary_ph[0]),
+                 tf.summary.scalar('online_scenario_length', online_summary_ph[1]))
 
     for i in range(last_iteration, int(total_iteration)):
         if is_done:
-            exp_buf.flush_episode()
+            total_scenario_reward = exp_buf.get_cache_total_reward()
+            if i > 0:
+                online_perf_and_length = np.array(
+                    [total_scenario_reward, len(exp_buf.trans_cache)])
+                online_perf, online_episode_count = sess.run(onlineOps, feed_dict={
+                    online_summary_ph: online_perf_and_length})
+                summary_writer.add_summary(online_perf, i)
+                summary_writer.add_summary(online_episode_count, i)
+            exp_buf.flush_scenario()
             s, r, prev_life_count = env.reset()
             S = [s]
             action, state = mainQN.get_action_and_next_state(sess, None, S)
