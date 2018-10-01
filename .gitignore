@@ -1,6 +1,7 @@
 # Run Results
 log/*
 ckpts/*
+backup/*
 
 # Byte-compiled / optimized / DLL files
 __pycache__/
