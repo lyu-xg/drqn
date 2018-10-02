@@ -98,11 +98,9 @@ def train(stack_length, render_eval=False, h_size=512, target_update_freq=10000,
         ))
         prev_life_count = life_count
 
-        # action, state = mainQN.get_action_and_next_state(sess, state, S)
-        if np.random.random() < epsilon_at(i):
-            action = env.rand_action()
-        else:
-            action = mainQN.get_action(sess, list(frame_buf))
+        action = (env.rand_action() 
+                  if np.random.random() < epsilon_at(i)
+                  else mainQN.get_action(sess, list(frame_buf)))
 
         if not i:
             start_time = time.time()
@@ -120,8 +118,8 @@ def train(stack_length, render_eval=False, h_size=512, target_update_freq=10000,
         if not i % target_update_freq:
             sess.run(updateOps)
             cur_time = time.time()
-            print('[{}] took {} seconds to {} steps'.format(
-                i, cur_time-start_time, target_update_freq))
+            print('[{}{}:{}] took {} seconds to {} steps'.format(
+                'dqn', stack_length, i, cur_time-start_time, target_update_freq), flush=1)
             start_time = cur_time
 
         #　TRAIN
@@ -178,7 +176,7 @@ def evaluate(sess, mainQN, env_name, skip=6, scenario_count=3, is_render=False):
         return R
 
     res = np.array([total_scenario_reward() for _ in range(scenario_count)])
-    print(time.time() - start_time, 'seconds to evaluate')
+    print(time.time() - start_time, 'seconds to evaluate', flush=1)
     return np.mean(res), np.std(res)
 
 

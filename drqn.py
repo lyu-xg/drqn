@@ -123,9 +123,10 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
         if not i % target_update_freq:
             sess.run(updateOps)
             cur_time = time.time()
-            print('[{}] took {} seconds to {} steps'.format(
-                i, cur_time-start_time, target_update_freq))
+            print('[{}{}:{}] took {} seconds to {} steps'.format(
+                'dRqn', trace_length, i, cur_time-start_time, target_update_freq), flush=1)
             start_time = cur_time
+
 
         #　TRAINING STARTS
         state_train = (np.zeros((batch_size, h_size)),) * 2
@@ -187,7 +188,7 @@ def evaluate(sess, mainQN, env_name, skip=6, scenario_count=3, is_render=False):
         return R
 
     res = np.array([total_scenario_reward() for _ in range(scenario_count)])
-    print(time.time() - start_time, 'seconds to evaluate')
+    print(time.time() - start_time, 'seconds to evaluate', flush=1)
     return np.mean(res), np.std(res)
 
 
