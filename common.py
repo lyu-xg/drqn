@@ -2,6 +2,8 @@ from time import time
 import numpy as np
 import os
 
+MILLION = int(1e6)
+
 def to_grayscale(frame):
     return np.mean(frame, axis=2).astype(np.uint8)
 
@@ -85,3 +87,12 @@ def one_hot(A, ndim):
 #     if not W1 or not W2:
 #         return 0
 #     return sum(np.sum(np.absolute(np.sign(w1-w2))) for w1, w2 in zip(W1, W2))
+
+def signal_handler(sig, frame):
+    global Exiting
+    if 'Exiting' not in globals():
+        Exiting = 0
+    print('signal captured, trying to save states.', flush=1)
+    Exiting += 1
+    if Exiting > 3:
+        raise SystemExit

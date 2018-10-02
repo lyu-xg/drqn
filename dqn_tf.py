@@ -4,12 +4,24 @@ import argparse
 import numpy as np
 import tensorflow as tf
 
-from buffer import TraceBuf
-from common import epsilon_at, checkpoint_dir, checkpoint_exists, signal_handler
+from buffer import StackBuf, FrameBuf
+from common import epsilon_at, checkpoint_dir, checkpoint_exists, signal_handler, MILLION
 from common_tf import checkpoint, load_checkpoint
 from myenv import Env
-from drqn_network import Qnetwork
+from dqn_network import Qnetwork
 
+
+def reset(stack_length, env, frame_buf):
+    frame, R, lives = env.reset()
+    frame_buf.append(frame)
+    for _ in range(1, stack_length):
+        frame, r, terminal, lives = env.step(0)
+        frame_buf.append(frame)
+        R += r
+        if terminal:
+            return reset(stack_length, env, frame_buf)
+    return R, lives
+    
 
 def getTargetUpdateOps(tfVars):
     # tfVars consists of all trainble TF Variables
@@ -21,32 +33,22 @@ def getTargetUpdateOps(tfVars):
             for i, (vm, vt) in enumerate(zip(tfVars[:len(tfVars)//2],
                                              tfVars[len(tfVars)//2:]))]
 
-
-# def updateTarget(op_holder, sess):
-#     # for op in op_holder:
-#     sess.run(op)
-#     total_vars = len(tf.trainable_variables())
-#     a = tf.trainable_variables()[0].eval(session=sess)
-#     b = tf.trainable_variables()[total_vars//2].eval(session=sess)
-#     print("Target Set", "Success." if a.all() == b.all() else "Failed.")
-
-
-def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
+Exiting = 0
+def train(stack_length, render_eval=False, h_size=512, target_update_freq=10000,
           ckpt_freq=500000, summary_freq=1000, eval_freq=10000,
           batch_size=32, env_name='SpaceInvaders', total_iteration=5e7,
-          pretrain_steps=50000):
+          pretrain_steps=5000):
+
+    # Setting up the run time
     global Exiting
-    # env_name += 'NoFrameskip-v4'
-    identity = 'stack={},env={},mod={}'.format(trace_length, env_name, 'drqn')
+    identity = 'stack={},env={},mod={}'.format(stack_length, env_name, 'drqn')
 
     env = Env(env_name=env_name, skip=4)
     a_size = env.n_actions
 
     tf.reset_default_graph()
-    cell = tf.nn.rnn_cell.LSTMCell(num_units=h_size)
-    cellT = tf.nn.rnn_cell.LSTMCell(num_units=h_size)
-    mainQN = Qnetwork(h_size, a_size, cell, 'main')
-    targetQN = Qnetwork(h_size, a_size, cellT, 'target')
+    mainQN = Qnetwork(h_size, a_size, stack_length, 'main')
+    targetQN = Qnetwork(h_size, a_size, stack_length, 'target')
     init = tf.global_variables_initializer()
     updateOps = getTargetUpdateOps(tf.trainable_variables())
     saver = tf.train.Saver(max_to_keep=5)
@@ -59,14 +61,14 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
 
     if checkpoint_exists(identity):
         (exp_buf, env, last_iteration, is_done,
-         prev_life_count, action, state, S) = load_checkpoint(sess, saver, identity)
+         prev_life_count, action, frame_buf) = load_checkpoint(sess, saver, identity)
         start_time = time.time()
     else:
-        exp_buf = TraceBuf(trace_length, scenario_size=2000)
+        exp_buf = StackBuf(size=MILLION)
+        frame_buf = FrameBuf(size=stack_length)
         last_iteration = 1 - pretrain_steps
         is_done = True
         prev_life_count = None
-        state = None
         sess.run(updateOps)
 
     summaryOps = tf.summary.merge_all()
@@ -78,34 +80,31 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
     onlineOps = (tf.summary.scalar('online_performance', online_summary_ph[0]),
                  tf.summary.scalar('online_scenario_length', online_summary_ph[1]))
 
+    # Main Loop
     for i in range(last_iteration, int(total_iteration)):
         if is_done:
-            total_scenario_reward = exp_buf.get_cache_total_reward()
+            scen_reward, scen_length = exp_buf.get_and_reset_reward_and_length()
             if i > 0:
-                online_perf_and_length = np.array(
-                    [total_scenario_reward, len(exp_buf.trans_cache)])
                 online_perf, online_episode_count = sess.run(onlineOps, feed_dict={
-                    online_summary_ph: online_perf_and_length})
+                    online_summary_ph: np.array([scen_reward, scen_length])})
                 summary_writer.add_summary(online_perf, i)
                 summary_writer.add_summary(online_episode_count, i)
-            exp_buf.flush_scenario()
-            s, r, prev_life_count = env.reset()
-            S = [s]
-            action, state = mainQN.get_action_and_next_state(sess, None, S)
 
-        S = [S[-1]]
-        for _ in range(4):
-            s, r, is_done, life_count = env.step(action)
-            exp_buf.append_trans((
-                S[-1], action, r, s,  # not cliping reward (huber loss)
-                (prev_life_count and life_count < prev_life_count or is_done)
-            ))
-            S.append(s)
-            prev_life_count = life_count
+            _, prev_life_count = reset(stack_length, env, frame_buf)
+            action = mainQN.get_action(sess, list(frame_buf))
 
-        action, state = mainQN.get_action_and_next_state(sess, state, S)
+        s, r, is_done, life_count = env.step(action)
+        exp_buf.append_trans((
+            list(frame_buf), action, r, list(frame_buf.append(s)),  # not cliping reward (huber loss)
+            (prev_life_count and life_count < prev_life_count or is_done)
+        ))
+        prev_life_count = life_count
+
+        # action, state = mainQN.get_action_and_next_state(sess, state, S)
         if np.random.random() < epsilon_at(i):
             action = env.rand_action()
+        else:
+            action = mainQN.get_action(sess, list(frame_buf))
 
         if not i:
             start_time = time.time()
@@ -113,11 +112,11 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
         if i <= 0:
             continue
 
-        if 'Exiting' in globals() or not i % ckpt_freq:
+        if Exiting or not i % ckpt_freq:
             checkpoint(sess, saver, identity,
                        exp_buf, env, i, is_done,
-                       prev_life_count, action, state, S)
-            if i % ckpt_freq:
+                       prev_life_count, action, frame_buf)
+            if Exiting:
                 raise SystemExit
 
         if not i % target_update_freq:
@@ -127,34 +126,26 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
                 i, cur_time-start_time, target_update_freq))
             start_time = cur_time
 
-        #　TRAINING STARTS
-        state_train = (np.zeros((batch_size, h_size)),) * 2
-
-        trainBatch = exp_buf.sample_traces(batch_size)
+        #　TRAIN
+        trainBatch = exp_buf.sample_batch(batch_size)
 
         Q1 = sess.run(mainQN.predict, feed_dict={
-            mainQN.scalarInput: np.vstack(trainBatch[:, 3]/255.0),
-            mainQN.trainLength: trace_length,
-            mainQN.state_init: state_train,
+            mainQN.scalarInput: np.vstack(trainBatch[3]/255.0),
             mainQN.batch_size: batch_size
         })
         Q2 = sess.run(targetQN.Qout, feed_dict={
-            targetQN.scalarInput: np.vstack(trainBatch[:, 3]/255.0),
-            targetQN.trainLength: trace_length,
-            targetQN.state_init: state_train,
+            targetQN.scalarInput: np.vstack(trainBatch[3]/255.0),
             targetQN.batch_size: batch_size
         })
-        end_multiplier = - (trainBatch[:, 4] - 1)
-        doubleQ = Q2[range(batch_size * trace_length), Q1]
-        targetQ = trainBatch[:, 2] + (0.99 * doubleQ * end_multiplier)
+        end_multiplier = - (trainBatch[4] - 1)
+        doubleQ = Q2[range(batch_size), Q1]
+        targetQ = trainBatch[2] + (0.99 * doubleQ * end_multiplier)
 
         # print(targetQ.shape)
         _, summary = sess.run((mainQN.updateModel, summaryOps), feed_dict={
-            mainQN.scalarInput: np.vstack(trainBatch[:, 0]/255.0),
+            mainQN.scalarInput: np.vstack(trainBatch[0]/255.0),
             mainQN.targetQ: targetQ,
-            mainQN.actions: trainBatch[:, 1],
-            mainQN.trainLength: trace_length,
-            mainQN.state_init: state_train,
+            mainQN.actions: trainBatch[1],
             mainQN.batch_size: batch_size
         })
 
@@ -175,12 +166,14 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
 def evaluate(sess, mainQN, env_name, skip=6, scenario_count=3, is_render=False):
     start_time = time.time()
     env = Env(env_name=env_name, skip=skip)
-
+    frame_buf = FrameBuf(size=mainQN.stack_size)
     def total_scenario_reward():
-        (s, R, _), t, state = env.reset(), False, None
+        t = 0
+        R, _ = reset(mainQN.stack_size, env, frame_buf)
         while not t:
-            action, state = mainQN.get_action_and_next_state(sess, state, [s])
+            action = mainQN.get_action(sess, list(frame_buf))
             s, r, t, _ = env.step(action)
+            frame_buf.append(s)
             R += r
             if is_render:
                 env.render()
@@ -194,7 +187,7 @@ def evaluate(sess, mainQN, env_name, skip=6, scenario_count=3, is_render=False):
 def main():
     signal.signal(signal.SIGINT, signal_handler)
     parser = argparse.ArgumentParser()
-    parser.add_argument('trace_length', action='store', type=int, default=10)
+    parser.add_argument('stack_length', action='store', type=int, default=4)
     parser.add_argument('-e', '--env_name', action='store',
                         default='SpaceInvadersNoFrameskip-v4')
     train(**vars(parser.parse_args()))

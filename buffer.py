@@ -1,5 +1,5 @@
 import numpy as np
-from common import preprocess, step
+from common import preprocess, step, MILLION
 
 
 class ExpBuf:
@@ -36,6 +36,32 @@ class ExpBuf:
     def sample_batch(self, size):
         return np.array([self[i] for i in np.random.choice(len(self), size)])
 
+
+class StackBuf(ExpBuf):
+    def __init__(self, size=MILLION):
+        super().__init__(size=size)
+        self.scenario_reward = 0
+        self.scenario_length = 0
+    
+    def append_trans(self, transition):
+        '''
+        transition: (s', a, r, s, t)
+        '''
+        super().append(transition)
+        self.scenario_reward += transition[2]
+        self.scenario_length += 1
+
+    def get_and_reset_reward_and_length(self):
+        r, self.scenario_reward = self.scenario_reward, 0
+        l, self.scenario_length = self.scenario_reward, 0
+        return r, l
+
+    def sample_batch(self, size):
+        batch = super().sample_batch(size)
+        S_prime, A, R, S, T = zip(*batch)
+        S_prime = np.array([np.array(s) for s in S_prime])
+        S = np.array([np.array(s) for s in S])
+        return S_prime, np.array(A), np.array(R), S, np.array(T)
 
 class TraceBuf:
     def __init__(self, trace_length, scenario_size=10000):
@@ -119,3 +145,8 @@ class FrameBuf:
 
     def show(self):
         display_frames_as_gif(self.toarray())
+
+
+if __name__ == '__main__':
+    sb = StackBuf()
+    print(len(sb.data))
