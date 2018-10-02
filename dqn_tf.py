@@ -38,10 +38,8 @@ def train(stack_length, render_eval=False, h_size=512, target_update_freq=10000,
           ckpt_freq=500000, summary_freq=1000, eval_freq=10000,
           batch_size=32, env_name='SpaceInvaders', total_iteration=5e7,
           pretrain_steps=5000):
-
-    # Setting up the run time
     global Exiting
-    identity = 'stack={},env={},mod={}'.format(stack_length, env_name, 'drqn')
+    identity = 'stack={},env={},mod={}'.format(stack_length, env_name, 'dqn')
 
     env = Env(env_name=env_name, skip=4)
     a_size = env.n_actions
