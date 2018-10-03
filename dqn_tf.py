@@ -6,7 +6,7 @@ import tensorflow as tf
 
 from buffer import StackBuf, FrameBuf
 from common import epsilon_at, checkpoint_dir, checkpoint_exists, signal_handler, MILLION
-from common_tf import checkpoint, load_checkpoint
+from common_tf import checkpoint, load_checkpoint, getTargetUpdateOps
 from myenv import Env
 from dqn_network import Qnetwork
 
@@ -22,16 +22,6 @@ def reset(stack_length, env, frame_buf):
             return reset(stack_length, env, frame_buf)
     return R, lives
     
-
-def getTargetUpdateOps(tfVars):
-    # tfVars consists of all trainble TF Variables
-    # where the first half is from the main network
-    #  and the second half is from the target network
-    # RETURNS: list of operations which when run,
-    #          updates the target network with main network's values
-    return [vt.assign(vm.value())
-            for i, (vm, vt) in enumerate(zip(tfVars[:len(tfVars)//2],
-                                             tfVars[len(tfVars)//2:]))]
 
 Exiting = 0
 def train(stack_length, render_eval=False, h_size=512, target_update_freq=10000,

@@ -6,29 +6,10 @@ import tensorflow as tf
 
 from buffer import TraceBuf
 from common import epsilon_at, checkpoint_dir, checkpoint_exists, signal_handler
-from common_tf import checkpoint, load_checkpoint
+from common_tf import checkpoint, load_checkpoint, getTargetUpdateOps
 from myenv import Env
 from drqn_network import Qnetwork
 
-
-def getTargetUpdateOps(tfVars):
-    # tfVars consists of all trainble TF Variables
-    # where the first half is from the main network
-    #  and the second half is from the target network
-    # RETURNS: list of operations which when run,
-    #          updates the target network with main network's values
-    return [vt.assign(vm.value())
-            for i, (vm, vt) in enumerate(zip(tfVars[:len(tfVars)//2],
-                                             tfVars[len(tfVars)//2:]))]
-
-
-# def updateTarget(op_holder, sess):
-#     # for op in op_holder:
-#     sess.run(op)
-#     total_vars = len(tf.trainable_variables())
-#     a = tf.trainable_variables()[0].eval(session=sess)
-#     b = tf.trainable_variables()[total_vars//2].eval(session=sess)
-#     print("Target Set", "Success." if a.all() == b.all() else "Failed.")
 
 Exiting = 0
 def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
