@@ -1,16 +1,24 @@
+
 import os
 from multiprocessing import Process
 import subprocess
 
 
+PORT_PREFIX = {
+    'dqn': '60',
+    'drqn': '70',
+    'adrqn': '80'
+}
+
 def run_tb(dir_name):
     os.chdir(dir_name)
-    trace = [param.split('=')
-             for param in dir_name.split(',')
-             if param.startswith('stack')][0][1]
-    port = ('600' if int(trace) < 10 else '60') + trace
+    identity = dict(param.split('=') for param in dir_name.split(','))
+    print(identity)
+    mod, trace = identity['mod'], identity['stack']
+    print(PORT_PREFIX[mod])
+    port = PORT_PREFIX[mod] + ('0' if len(trace) < 2 else '') + trace
     print('starting TensorBoard for trace_length={} at port={}'.format(trace, port))
-    subprocess.call(['tensorboard', '--port', port, '--logdir', '.'])
+    # subprocess.call(['tensorboard', '--port', port, '--logdir', '.'])
 
 
 def main():
