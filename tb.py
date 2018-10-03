@@ -13,12 +13,10 @@ PORT_PREFIX = {
 def run_tb(dir_name):
     os.chdir(dir_name)
     identity = dict(param.split('=') for param in dir_name.split(','))
-    print(identity)
     mod, trace = identity['mod'], identity['stack']
-    print(PORT_PREFIX[mod])
     port = PORT_PREFIX[mod] + ('0' if len(trace) < 2 else '') + trace
     print('starting TensorBoard for trace_length={} at port={}'.format(trace, port))
-    # subprocess.call(['tensorboard', '--port', port, '--logdir', '.'])
+    subprocess.call(['tensorboard', '--port', port, '--logdir', '.'])
 
 
 def main():
