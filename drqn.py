@@ -30,7 +30,7 @@ def getTargetUpdateOps(tfVars):
 #     b = tf.trainable_variables()[total_vars//2].eval(session=sess)
 #     print("Target Set", "Success." if a.all() == b.all() else "Failed.")
 
-
+Exiting = 0
 def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
           ckpt_freq=500000, summary_freq=1000, eval_freq=10000,
           batch_size=32, env_name='SpaceInvaders', total_iteration=5e7,
@@ -126,7 +126,6 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
             print('[{}{}:{}] took {} seconds to {} steps'.format(
                 'dRqn', trace_length, i, cur_time-start_time, target_update_freq), flush=1)
             start_time = cur_time
-
 
         #　TRAINING STARTS
         state_train = (np.zeros((batch_size, h_size)),) * 2
