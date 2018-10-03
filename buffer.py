@@ -1,5 +1,5 @@
 import numpy as np
-from common import preprocess, step, MILLION
+from common import MILLION
 
 
 class ExpBuf:

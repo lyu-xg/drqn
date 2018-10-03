@@ -4,11 +4,10 @@ import argparse
 import numpy as np
 import tensorflow as tf
 
+import common as util
 from buffer import TraceBuf
-from common import epsilon_at, checkpoint_dir, checkpoint_exists, signal_handler
-from common_tf import checkpoint, load_checkpoint, getTargetUpdateOps
 from myenv import Env
-from drqn_network import Qnetwork
+from networks.drqn_network import Qnetwork
 
 
 Exiting = 0
@@ -29,7 +28,7 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
     mainQN = Qnetwork(h_size, a_size, cell, 'main')
     targetQN = Qnetwork(h_size, a_size, cellT, 'target')
     init = tf.global_variables_initializer()
-    updateOps = getTargetUpdateOps(tf.trainable_variables())
+    updateOps = util.getTargetUpdateOps(tf.trainable_variables())
     saver = tf.train.Saver(max_to_keep=5)
 
     config = tf.ConfigProto()
@@ -38,9 +37,9 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
     sess.run(init)
     summary_writer = tf.summary.FileWriter('./log/' + identity, sess.graph)
 
-    if checkpoint_exists(identity):
+    if util.checkpoint_exists(identity):
         (exp_buf, env, last_iteration, is_done,
-         prev_life_count, action, state, S) = load_checkpoint(sess, saver, identity)
+         prev_life_count, action, state, S) = util.load_checkpoint(sess, saver, identity)
         start_time = time.time()
     else:
         exp_buf = TraceBuf(trace_length, scenario_size=2500)
@@ -85,7 +84,7 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
             prev_life_count = life_count
 
         action, state = mainQN.get_action_and_next_state(sess, state, S)
-        if np.random.random() < epsilon_at(i):
+        if np.random.random() < util.epsilon_at(i):
             action = env.rand_action()
 
         if not i:
@@ -95,7 +94,7 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
             continue
 
         if Exiting or not i % ckpt_freq:
-            checkpoint(sess, saver, identity,
+            util.checkpoint(sess, saver, identity,
                        exp_buf, env, i, is_done,
                        prev_life_count, action, state, S)
             if i % ckpt_freq:
@@ -150,7 +149,7 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
             summary_writer.add_summary(perf_std, i)
     # In the end
     sess.close()
-    checkpoint(sess, saver, identity)
+    util.checkpoint(sess, saver, identity)
 
 
 def evaluate(sess, mainQN, env_name, skip=6, scenario_count=3, is_render=False):
@@ -173,7 +172,7 @@ def evaluate(sess, mainQN, env_name, skip=6, scenario_count=3, is_render=False):
 
 
 def main():
-    signal.signal(signal.SIGINT, signal_handler)
+    signal.signal(signal.SIGINT, util.signal_handler)
     parser = argparse.ArgumentParser()
     parser.add_argument('trace_length', action='store', type=int, default=10)
     parser.add_argument('-e', '--env_name', action='store',
