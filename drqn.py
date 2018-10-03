@@ -62,7 +62,7 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
          prev_life_count, action, state, S) = load_checkpoint(sess, saver, identity)
         start_time = time.time()
     else:
-        exp_buf = TraceBuf(trace_length, scenario_size=2000)
+        exp_buf = TraceBuf(trace_length, scenario_size=2500)
         last_iteration = 1 - pretrain_steps
         is_done = True
         prev_life_count = None
@@ -113,7 +113,7 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
         if i <= 0:
             continue
 
-        if 'Exiting' in globals() or not i % ckpt_freq:
+        if Exiting or not i % ckpt_freq:
             checkpoint(sess, saver, identity,
                        exp_buf, env, i, is_done,
                        prev_life_count, action, state, S)
