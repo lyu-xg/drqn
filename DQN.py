@@ -92,8 +92,7 @@ def train(stack_length, render_eval=False, h_size=512, target_update_freq=10000,
 
         if not i:
             start_time = util.time()
-        if not i % 100:
-            print(i//100, end=' ', flush=1)
+            
         if i <= 0:
             continue
 
