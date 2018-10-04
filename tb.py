@@ -1,5 +1,6 @@
 
 import os
+import sys
 from multiprocessing import Process
 import subprocess
 
@@ -21,7 +22,7 @@ def run_tb(dir_name):
 
 
 def main():
-    os.chdir(os.getenv("HOME") + '/drqn/log')
+    os.chdir(sys.path[0] + '/log')
     log_dirs = os.listdir()
     for log_dir in log_dirs:
         Process(target=run_tb, args=(log_dir,)).start()
