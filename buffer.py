@@ -1,6 +1,6 @@
 import numpy as np
 from common import MILLION
-
+from collections import deque
 
 class ExpBuf:
     def __init__(self, size=1000000):
@@ -116,8 +116,8 @@ class Logger:
         self.cache.clear()
 
 
-from collections import deque
-from imgutil import display_frames_as_gif
+
+# from imgutil import display_frames_as_gif
 
 
 class FrameBuf:
@@ -143,8 +143,8 @@ class FrameBuf:
     def __str__(self):
         return '\n'.join('{} with shape {}'.format(type(f), f.shape) for f in self)
 
-    def show(self):
-        display_frames_as_gif(self.toarray())
+    # def show(self):
+    #     display_frames_as_gif(self.toarray())
 
 
 if __name__ == '__main__':
