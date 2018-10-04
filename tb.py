@@ -17,7 +17,7 @@ def run_tb(dir_name):
     port = PORT_PREFIX[mod] + ('0' if len(trace) < 2 else '') + trace
     print('starting TensorBoard for model={}, {}_length={} at http://localhost:{}'.format(
         mod, 'trace' if mod!='dqn' else 'stack', trace, port))
-    subprocess.check_output(['tensorboard', '--port', port, '--logdir', '.'])
+    subprocess.call(['tensorboard', '--port', port, '--logdir', '.'])
 
 
 def main():
