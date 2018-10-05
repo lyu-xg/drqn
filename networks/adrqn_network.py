@@ -6,14 +6,15 @@ import tensorflow.contrib.slim as slim
 class Qnetwork():
     def __init__(self, h_size, a_size, action_h_size, rnn_cell, scopeName):
         self.h_size, self.a_size = h_size, a_size
-        self.scalarInput = tf.placeholder(shape=[None, 7056], dtype=tf.float32)
-        self.batch_size = tf.placeholder(dtype=tf.int32, shape=[])
-        self.trainLength = tf.placeholder(dtype=tf.int32, shape=[])
+        self.scalarInput = tf.placeholder(shape=[None, 7056], dtype=tf.float32, name='frameInput')
+        self.batch_size = tf.placeholder(dtype=tf.int32, shape=[], name='batchSize')
+        self.trainLength = tf.placeholder(dtype=tf.int32, shape=[], name='trainLength')
 
-        self.actionsInput = tf.placeholder(shape=[None], dtype=tf.int32)
+        self.actionsInput = tf.placeholder(shape=[None], dtype=tf.int32, name='actionsInput')
         self.actionsInputOnehot = tf.one_hot(self.actionsInput, a_size)
         self.actionsInputWeights = tf.Variable(tf.random_normal([a_size, action_h_size]))
         self.actionsInputProjected = tf.matmul(self.actionsInputOnehot, self.actionsInputWeights)
+        
 
         self.frameShape = tf.constant((84, 84, 1), dtype=tf.int32)
 #         self.frames = tf.reshape(self.scalarInput, tf.concat(([self.batch_size*self.trainLength], self.frameShape), 0))
@@ -41,8 +42,14 @@ class Qnetwork():
 
         self.convFlat = tf.reshape(
             slim.flatten(self.conv4), [self.batch_size, self.trainLength, h_size])
-
-        self.rnnInput = tf.concat([self.convFlat, self.actionsInputProjected], 1)
+        print(self.convFlat.shape)
+        
+        
+        self.rnnInput = tf.concat([
+                tf.reshape(slim.flatten(self.conv4), [self.batch_size, self.trainLength, h_size]), 
+                tf.reshape(self.actionsInputProjected, [self.batch_size, self.trainLength, action_h_size])],
+            2)
+        print(self.rnnInput.shape)
 
         self.state_init = rnn_cell.zero_state(self.batch_size, tf.float32)
         self.rnn, self.rnn_state = tf.nn.dynamic_rnn(
@@ -52,6 +59,7 @@ class Qnetwork():
         self.rnn = tf.reshape(self.rnn, shape=[-1, h_size])
 
         self.streamA, self.streamV = tf.split(self.rnn, 2, axis=1)
+        print(self.streamA.shape)
 
         self.AW = tf.Variable(tf.random_normal([h_size//2, a_size]))
         self.VW = tf.Variable(tf.random_normal([h_size//2, 1]))

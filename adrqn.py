@@ -72,7 +72,7 @@ def train(trace_length, render_eval=False, h_size=512, action_h_size=512,
             exp_buf.flush_scenario()
             s, r, prev_life_count = env.reset()
             S = [s]
-            action, state = mainQN.get_action_and_next_state(sess, None, action, S)
+            action, state = mainQN.get_action_and_next_state(sess, None, [action], S)
 
         S = [S[-1]]
         for _ in range(4):
@@ -84,7 +84,7 @@ def train(trace_length, render_eval=False, h_size=512, action_h_size=512,
             S.append(s)
             prev_life_count = life_count
 
-        action, state = mainQN.get_action_and_next_state(sess, state, action, S)
+        action, state = mainQN.get_action_and_next_state(sess, state, [action]*len(S), S)
         if np.random.random() < util.epsilon_at(i):
             action = env.rand_action()
 

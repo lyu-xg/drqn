@@ -37,6 +37,8 @@ class Qnetwork():
         self.convFlat = tf.reshape(
             slim.flatten(self.conv4), [self.batch_size, self.trainLength, h_size])
 
+        print(self.convFlat.shape)
+
         self.state_init = rnn_cell.zero_state(self.batch_size, tf.float32)
         self.rnn, self.rnn_state = tf.nn.dynamic_rnn(
             inputs=self.convFlat, cell=rnn_cell, dtype=tf.float32,
@@ -91,3 +93,6 @@ class Qnetwork():
             self.state_init: state,
             self.batch_size: 1
         })
+
+if __name__ == '__main__':
+    q = Qnetwork(512, 4, 256, tf.nn.rnn_cell.LSTMCell(num_units=512), 'main')
