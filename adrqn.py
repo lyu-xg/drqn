@@ -181,6 +181,7 @@ def main():
     parser.add_argument('trace_length', action='store', type=int, default=10)
     parser.add_argument('-e', '--env_name', action='store',
                         default='SpaceInvadersNoFrameskip-v4')
+    parser.add_argument('-a', '--action_h_size', action='store', type=int, default=512)
     train(**vars(parser.parse_args()))
 
 
