@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 
 import common as util
-from buffer import TraceBuf
+from buffer import ActionTraceBuf
 from myenv import Env
 from networks.adrqn_network import Qnetwork
 
@@ -42,7 +42,7 @@ def train(trace_length, render_eval=False, h_size=512, action_h_size=512,
          prev_life_count, action, state, S) = util.load_checkpoint(sess, saver, identity)
         start_time = time.time()
     else:
-        exp_buf = TraceBuf(trace_length, scenario_size=2500)
+        exp_buf = ActionTraceBuf(trace_length, scenario_size=2500)
         last_iteration = 1 - pretrain_steps
         is_done = True
         action = 0
@@ -115,12 +115,14 @@ def train(trace_length, render_eval=False, h_size=512, action_h_size=512,
 
         Q1 = sess.run(mainQN.predict, feed_dict={
             mainQN.scalarInput: np.vstack(trainBatch[:, 3]/255.0),
+            targetQN.actionsInput: np.vstack(trainBatch[:, 1]),
             mainQN.trainLength: trace_length,
             mainQN.state_init: state_train,
             mainQN.batch_size: batch_size
         })
         Q2 = sess.run(targetQN.Qout, feed_dict={
             targetQN.scalarInput: np.vstack(trainBatch[:, 3]/255.0),
+            targetQN.actionsInput: np.vstack(trainBatch[:, 1]),
             targetQN.trainLength: trace_length,
             targetQN.state_init: state_train,
             targetQN.batch_size: batch_size
@@ -132,6 +134,7 @@ def train(trace_length, render_eval=False, h_size=512, action_h_size=512,
         # print(targetQ.shape)
         _, summary = sess.run((mainQN.updateModel, summaryOps), feed_dict={
             mainQN.scalarInput: np.vstack(trainBatch[:, 0]/255.0),
+            mainQN.actionsInput: np.vstack(trainBatch[:, 5]),
             mainQN.targetQ: targetQ,
             mainQN.actions: trainBatch[:, 1],
             mainQN.trainLength: trace_length,

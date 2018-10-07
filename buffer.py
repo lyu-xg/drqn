@@ -69,6 +69,7 @@ class TraceBuf:
         self.buf = ExpBuf(size=scenario_size)
         self.trans_cache = []
         self.trace_length = trace_length
+        self.transition_length = 5
 
     def flush_scenario(self):
         if len(self.trans_cache) >= self.trace_length:
@@ -86,15 +87,33 @@ class TraceBuf:
         assert(len(ep) >= self.trace_length)
         self.buf.append(ep)
 
+
     def slice_ep(self, ep):
+        # ep: list of transitions
         anchor = np.random.randint(0, len(ep) + 1 - self.trace_length)
-        return ep[anchor:anchor+self.trace_length]
+        return anchor, ep[anchor:anchor+self.trace_length]
 
     def sample_traces(self, batch_size):
-        traces = np.array([self.slice_ep(e)
+        # return shape: (batch_size, trace_len, frame_shape)
+        traces = np.array([self.slice_ep(e)[1]
                            for e in self.buf.sample_batch(batch_size)])
-        return np.reshape(traces, (batch_size * self.trace_length, 5))
+        return np.reshape(traces, (batch_size * self.trace_length, 
+                                   self.transition_length))
 
+class ActionTraceBuf(TraceBuf):
+    def __init__(self, trace_length, scenario_size=3000):
+        super().__init__(trace_length, scenario_size)
+        self.transition_length = 6
+
+    def slice_ep(self, ep):
+        # try to find previous actions from previous transition
+        anchor, traces = super().slice_ep(ep)
+        prev_action = 0 if not anchor else ep[anchor-1][1]
+        res = []
+        for s_prime, a, r, s, t in traces:
+            res.append([s_prime, a, r, s, t, prev_action])
+            prev_action = a
+        return res
 
 class Logger:
     def __init__(self, filename, cache_size=50):

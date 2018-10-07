@@ -40,9 +40,9 @@ class Qnetwork():
             biases_initializer=None, scope=scopeName+'_conv4'
         )
 
-        self.convFlat = tf.reshape(
-            slim.flatten(self.conv4), [self.batch_size, self.trainLength, h_size])
-        print(self.convFlat.shape)
+        # self.convFlat = tf.reshape(
+        #     slim.flatten(self.conv4), [self.batch_size, self.trainLength, h_size])
+        # print(self.convFlat.shape)
         
         
         self.rnnInput = tf.concat([
