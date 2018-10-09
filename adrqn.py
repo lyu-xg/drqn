@@ -9,21 +9,10 @@ from buffer import ActionTraceBuf
 from myenv import Env
 from networks.adrqn_network import Qnetwork
 
-
-Exiting = 0
-def signal_handler(sig, frame):
-    global Exiting
-    print('signal captured, trying to save states.', flush=1)
-    Exiting += 1
-    if Exiting > 2:
-        print('okay got it, exiting without saving.', flush=1)
-        raise SystemExit
-
 def train(trace_length, render_eval=False, h_size=512, action_h_size=512,
           target_update_freq=10000, ckpt_freq=500000, summary_freq=1000, eval_freq=10000,
           batch_size=32, env_name='SpaceInvaders', total_iteration=5e7,
           pretrain_steps=50000):
-    global Exiting
 
     pretrain_steps = 1000
     # env_name += 'NoFrameskip-v4'
@@ -101,14 +90,12 @@ def train(trace_length, render_eval=False, h_size=512, action_h_size=512,
         if not i:
             start_time = time.time()
 
-        if Exiting or not i % ckpt_freq:
+        if util.Exiting or not i % ckpt_freq:
             util.checkpoint(sess, saver, identity,
                        exp_buf, env, i, is_done,
                        prev_life_count, action, state, S)
-            if Exiting:
+            if util.Exiting:
                 raise SystemExit
-
-        print(i)
 
         if i <= 0:
             continue
@@ -127,14 +114,14 @@ def train(trace_length, render_eval=False, h_size=512, action_h_size=512,
 
         Q1 = sess.run(mainQN.predict, feed_dict={
             mainQN.scalarInput: np.vstack(trainBatch[:, 3]/255.0),
-            targetQN.actionsInput: np.vstack(trainBatch[:, 1]),
+            targetQN.actionsInput: trainBatch[:, 1],
             mainQN.trainLength: trace_length,
             mainQN.state_init: state_train,
             mainQN.batch_size: batch_size
         })
         Q2 = sess.run(targetQN.Qout, feed_dict={
             targetQN.scalarInput: np.vstack(trainBatch[:, 3]/255.0),
-            targetQN.actionsInput: np.vstack(trainBatch[:, 1]),
+            targetQN.actionsInput: trainBatch[:, 1],
             targetQN.trainLength: trace_length,
             targetQN.state_init: state_train,
             targetQN.batch_size: batch_size
@@ -146,7 +133,7 @@ def train(trace_length, render_eval=False, h_size=512, action_h_size=512,
         # print(targetQ.shape)
         _, summary = sess.run((mainQN.updateModel, summaryOps), feed_dict={
             mainQN.scalarInput: np.vstack(trainBatch[:, 0]/255.0),
-            mainQN.actionsInput: np.vstack(trainBatch[:, 5]),
+            mainQN.actionsInput: trainBatch[:, 5],
             mainQN.targetQ: targetQ,
             mainQN.actions: trainBatch[:, 1],
             mainQN.trainLength: trace_length,

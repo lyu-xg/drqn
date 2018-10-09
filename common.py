@@ -16,10 +16,11 @@ def checkpoint_dir(identity):
 def checkpoint_exists(identity):
     return os.path.isdir(checkpoint_dir(identity))
 
+Exiting = 0
 def signal_handler(sig, frame):
     global Exiting
-    if 'Exiting' not in globals():
-        Exiting = 0
+    # if 'Exiting' not in globals():
+    #     Exiting = 0
     print('signal captured, trying to save states.', flush=1)
     Exiting += 1
     if Exiting > 2:

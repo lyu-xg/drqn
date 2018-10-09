@@ -21,12 +21,10 @@ def reset(stack_length, env, frame_buf):
     return R, lives
     
 
-Exiting = 0
 def train(stack_length, render_eval=False, h_size=512, target_update_freq=10000,
           ckpt_freq=500000, summary_freq=1000, eval_freq=10000,
           batch_size=32, env_name='SpaceInvaders', total_iteration=5e7,
           pretrain_steps=5000):
-    global Exiting
     identity = 'stack={},env={},mod={}'.format(stack_length, env_name, 'dqn')
 
     env = Env(env_name=env_name, skip=4)
@@ -96,11 +94,11 @@ def train(stack_length, render_eval=False, h_size=512, target_update_freq=10000,
         if i <= 0:
             continue
 
-        if Exiting or not i % ckpt_freq:
+        if util.Exiting or not i % ckpt_freq:
             util.checkpoint(sess, saver, identity,
                        exp_buf, env, i, is_done,
                        prev_life_count, action, frame_buf)
-            if Exiting:
+            if util.Exiting:
                 raise SystemExit
 
         if not i % target_update_freq:
