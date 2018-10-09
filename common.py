@@ -22,7 +22,7 @@ def signal_handler(sig, frame):
         Exiting = 0
     print('signal captured, trying to save states.', flush=1)
     Exiting += 1
-    if Exiting > 3:
+    if Exiting > 2:
         print('okay got it, exiting without saving.', flush=1)
         raise SystemExit
 

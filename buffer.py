@@ -113,7 +113,7 @@ class ActionTraceBuf(TraceBuf):
         for s_prime, a, r, s, t in traces:
             res.append([s_prime, a, r, s, t, prev_action])
             prev_action = a
-        return res
+        return anchor, res
 
 class Logger:
     def __init__(self, filename, cache_size=50):

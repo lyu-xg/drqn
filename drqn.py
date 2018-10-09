@@ -9,8 +9,16 @@ from buffer import TraceBuf
 from myenv import Env
 from networks.drqn_network import Qnetwork
 
-
 Exiting = 0
+def signal_handler(sig, frame):
+    global Exiting
+    print('signal captured, trying to save states.', flush=1)
+    Exiting += 1
+    if Exiting > 2:
+        print('okay got it, exiting without saving.', flush=1)
+        raise SystemExit
+
+
 def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
           ckpt_freq=500000, summary_freq=1000, eval_freq=10000,
           batch_size=32, env_name='SpaceInvaders', total_iteration=5e7,

@@ -10,7 +10,7 @@ class Qnetwork():
         self.batch_size = tf.placeholder(dtype=tf.int32, shape=[], name='batchSize')
         self.trainLength = tf.placeholder(dtype=tf.int32, shape=[], name='trainLength')
 
-        self.actionsInput = tf.placeholder(shape=[None], dtype=tf.int32, name='actionsInput')
+        self.actionsInput = tf.placeholder(shape=[None, 1], dtype=tf.int32, name='actionsInput')
         self.actionsInputOnehot = tf.one_hot(self.actionsInput, a_size)
         self.actionsInputWeights = tf.Variable(tf.random_normal([a_size, action_h_size]))
         self.actionsInputProjected = tf.matmul(self.actionsInputOnehot, self.actionsInputWeights)
