@@ -114,7 +114,7 @@ def train(trace_length, render_eval=False, h_size=512, action_h_size=512,
 
         Q1 = sess.run(mainQN.predict, feed_dict={
             mainQN.scalarInput: np.vstack(trainBatch[:, 3]/255.0),
-            targetQN.actionsInput: trainBatch[:, 1],
+            mainQN.actionsInput: trainBatch[:, 1],
             mainQN.trainLength: trace_length,
             mainQN.state_init: state_train,
             mainQN.batch_size: batch_size
