@@ -2,6 +2,7 @@ import cv2
 import gym
 import numpy as np
 
+ZERO_FRAME = np.zeros((7056,), dtype=np.int8)
 
 def to_grayscale(frame):
     return np.mean(frame, axis=2).astype(np.uint8)
@@ -34,7 +35,7 @@ class Env:
 
     def preprocess(self, s):
         if self.flicker_prob and np.random.random() < self.flicker_prob:
-            return np.zeros((84, 84))
+            return ZERO_FRAME
         return downsample(to_grayscale(s[8:-12]), (84, 84)).reshape((7056,))
 
     def rand_action(self):

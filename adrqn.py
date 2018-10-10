@@ -17,6 +17,8 @@ def train(trace_length, render_eval=False, h_size=512, action_h_size=512,
     pretrain_steps = 1000
     # env_name += 'NoFrameskip-v4'
     identity = 'stack={},env={},mod={}'.format(trace_length, env_name, 'adrqn')
+    if action_h_size != 512:
+        identity += ',action_h={}'.format(action_h_size)
 
     env = Env(env_name=env_name, skip=4)
     a_size = env.n_actions
@@ -160,9 +162,9 @@ def evaluate(sess, mainQN, env_name, skip=6, scenario_count=3, is_render=False):
     env = Env(env_name=env_name, skip=skip)
 
     def total_scenario_reward():
-        (s, R, _), t, state = env.reset(), False, None
+        (s, R, _), t, state, action = env.reset(), False, None, 0
         while not t:
-            action, state = mainQN.get_action_and_next_state(sess, state, [s])
+            action, state = mainQN.get_action_and_next_state(sess, state, [action], [s])
             s, r, t, _ = env.step(action)
             R += r
             if is_render:
