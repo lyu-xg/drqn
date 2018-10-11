@@ -14,7 +14,8 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
           batch_size=32, env_name='SpaceInvaders', total_iteration=5e7,
           pretrain_steps=50000):
     # env_name += 'NoFrameskip-v4'
-    identity = 'stack={},env={},mod={}'.format(trace_length, env_name, 'drqn')
+    identity = 'stack={},env={},mod={},h_size={}'.format(
+        trace_length, env_name, 'drqn', h_size)
 
     env = Env(env_name=env_name, skip=4)
     a_size = env.n_actions
@@ -171,7 +172,8 @@ def evaluate(sess, mainQN, env_name, skip=6, scenario_count=3, is_render=False):
 def main():
     signal.signal(signal.SIGINT, util.signal_handler)
     parser = argparse.ArgumentParser()
-    parser.add_argument('trace_length', action='store', type=int, default=10)
+    parser.add_argument('-t', '--trace_length', action='store', type=int, default=10)
+    parser.add_argument('-d', '--h_size', action='store', type=int, default=512)
     parser.add_argument('-e', '--env_name', action='store',
                         default='SpaceInvadersNoFrameskip-v4')
     train(**vars(parser.parse_args()))
