@@ -36,7 +36,8 @@ class Env:
     def preprocess(self, s):
         if self.flicker_prob and np.random.random() < self.flicker_prob:
             return ZERO_FRAME
-        return downsample(to_grayscale(s[8:-12]), (84, 84)).reshape((7056,))
+        # return downsample(to_grayscale(s[8:-12]), (84, 84)).reshape((7056,))
+        return downsample(to_grayscale(s), (84, 84)).reshape((7056,))
 
     def rand_action(self):
         return self.env.action_space.sample()
