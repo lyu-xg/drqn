@@ -2,6 +2,7 @@
 import os
 import sys
 import signal
+import webbrowser
 from multiprocessing import Process
 import subprocess
 
@@ -28,6 +29,7 @@ def main():
         Process(target=run_tb, args=(log_dir, port)).start()
         fp.write('\n\t<a href="http://localhost:{}">{}</a></br>'.format(port, log_dir))
     fp.write('\n</body></html>')
+    webbrowser.open_new_tab(HTML_OUT)
     fp.close()
     
 

@@ -179,7 +179,7 @@ def evaluate(sess, mainQN, env_name, skip=6, scenario_count=3, is_render=False):
 def main():
     signal.signal(signal.SIGINT, util.signal_handler)
     parser = argparse.ArgumentParser()
-    parser.add_argument('trace_length', action='store', type=int, default=10)
+    parser.add_argument('-t', '--trace_length', action='store', type=int, default=10)
     parser.add_argument('-e', '--env_name', action='store',
                         default='SpaceInvadersNoFrameskip-v4')
     parser.add_argument('-a', '--action_h_size', action='store', type=int, default=512)
