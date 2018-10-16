@@ -169,7 +169,7 @@ def evaluate(sess, mainQN, env_name, skip=6, scenario_count=3, is_render=False):
 def main():
     signal.signal(signal.SIGINT, util.signal_handler)
     parser = argparse.ArgumentParser()
-    parser.add_argument('stack_length', action='store', type=int, default=4)
+    parser.add_argument('-t', '--stack_length', action='store', type=int, default=4)
     parser.add_argument('-e', '--env_name', action='store',
                         default='SpaceInvadersNoFrameskip-v4')
     train(**vars(parser.parse_args()))
