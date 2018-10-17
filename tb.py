@@ -25,7 +25,7 @@ def main():
     fp.write('<html><body>')
     
     for port_suffix, log_dir in enumerate(log_dirs):
-        port = 6000 + port_suffix
+        port = 6001 + port_suffix
         Process(target=run_tb, args=(log_dir, port)).start()
         fp.write('\n\t<a href="http://localhost:{}">{}</a></br>'.format(port, log_dir))
     fp.write('\n</body></html>')
