@@ -158,7 +158,8 @@ class Qnetwork():
 
         residual = self.huber_loss(residual)
 
-        return tf.reduce_sum(residual * residual_counterweights) / self.num_quant
-
+        loss = tf.reduce_sum(residual * residual_counterweights) / self.num_quant
+        print('loss shape inside', loss.shape)
+        return loss
 if __name__ == '__main__':
     q = Qnetwork(512, 256, tf.nn.rnn_cell.LSTMCell(num_units=512), 'main', num_quant=128)
