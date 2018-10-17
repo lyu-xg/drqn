@@ -4,8 +4,8 @@ import tensorflow.contrib.slim as slim
 
 
 class Qnetwork():
-    def __init__(self, h_size, a_size, rnn_cell, scopeName, num_quant=50, **kwargs):
-        self.h_size, self.a_size, self.num_quant = h_size, a_size, num_quant
+    def __init__(self, h_size, a_size, rnn_cell, scopeName, num_quant=50, discount=0.99, **kwargs):
+        self.h_size, self.a_size, self.num_quant, self.discount = h_size, a_size, num_quant, discount
         self.scalarInput = tf.placeholder(shape=[None, 7056], dtype=tf.float32)
         self.batch_size = tf.placeholder(dtype=tf.int32, shape=[])
         self.trainLength = tf.placeholder(dtype=tf.int32, shape=[])
@@ -76,7 +76,18 @@ class Qnetwork():
         # Training stuff and loss
 
         # None stands for batch_size
-        self.targetQ = tf.placeholder(shape=[None, num_quant], dtype=tf.float32)
+        self.sample_terminals = tf.placeholder(tf.int8, shape=[None], name='sample_terminals')
+        self.sample_rewards = tf.placeholder(tf.float32, shape=[None], name='sample_rewards')
+        self.doubleQ = tf.placeholder(tf.float32, shape=(None, self.num_quant), name='doubleQ')
+        # self.targetQ = tf.placeholder(shape=[None, num_quant], dtype=tf.float32)
+        end_multiplier = tf.cast(- (self.sample_terminals - 1), tf.float32)
+        end_mul_tiles = tf.transpose(self.rep_row(end_multiplier, self.num_quant))
+        # reward_tiles = tf.tile(tf.reshape(self.sample_rewards, [-1,1]), [1, self.num_quant])
+        reward_tiles = tf.transpose(self.rep_row(self.sample_rewards, self.num_quant))
+        terminal_tiles = tf.transpose(self.rep_row(self.sample_terminals, self.num_quant))
+
+        self.targetQ = terminal_tiles + (self.discount * self.doubleQ * end_mul_tiles)
+
         self.actions = tf.placeholder(shape=[None], dtype=tf.int32)
 
         select = tf.concat([tf.reshape(tf.range(self.batch_size), [-1, 1]),
@@ -121,7 +132,7 @@ class Qnetwork():
         })
 
     @staticmethod
-    def rep_row(row, times):
+    def rep_row(row, times=0):
         return tf.reshape(tf.tile(row, [times]), [times,-1])
 
     @staticmethod
