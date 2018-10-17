@@ -1,3 +1,5 @@
+.DS_Store
+
 # Run Results
 log/*
 ckpts/*

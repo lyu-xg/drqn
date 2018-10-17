@@ -8,23 +8,26 @@ import common as util
 from buffer import TraceBuf
 from myenv import Env
 from networks.drqn_network import Qnetwork
+from networks.dist_recur_network import Qnetwork as dist_Qnetwork
 
 def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
           ckpt_freq=500000, summary_freq=1000, eval_freq=10000,
           batch_size=32, env_name='SpaceInvaders', total_iteration=5e7,
-          pretrain_steps=50000):
+          pretrain_steps=50000, num_quant=0):
+    network = dist_Qnetwork if num_quant else Qnetwork
     # env_name += 'NoFrameskip-v4'
     identity = 'stack={},env={},mod={},h_size={}'.format(
         trace_length, env_name, 'drqn', h_size)
-
+    if num_quant:
+        identity += ',quantile={}'.format(num_quant)
     env = Env(env_name=env_name, skip=4)
     a_size = env.n_actions
 
     tf.reset_default_graph()
     cell = tf.nn.rnn_cell.LSTMCell(num_units=h_size)
     cellT = tf.nn.rnn_cell.LSTMCell(num_units=h_size)
-    mainQN = Qnetwork(h_size, a_size, cell, 'main')
-    targetQN = Qnetwork(h_size, a_size, cellT, 'target')
+    mainQN = network(h_size, a_size, cell, 'main', num_quant=num_quant)
+    targetQN = network(h_size, a_size, cellT, 'target', num_quant=num_quant)
     init = tf.global_variables_initializer()
     updateOps = util.getTargetUpdateOps(tf.trainable_variables())
     saver = tf.train.Saver(max_to_keep=5)
@@ -176,6 +179,7 @@ def main():
     parser.add_argument('-d', '--h_size', action='store', type=int, default=512)
     parser.add_argument('-e', '--env_name', action='store',
                         default='SpaceInvadersNoFrameskip-v4')
+    parser.add_argument('-q', '--num_quant', action='store', type=int, default=0)
     train(**vars(parser.parse_args()))
 
 
