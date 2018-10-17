@@ -151,7 +151,7 @@ class Qnetwork():
         residual = J - I
         I_indexes = tf.map_fn(
             lambda x: self.rep_row(tf.range(self.num_quant), self.num_quant),
-            tf.range(self.num_quant))
+            tf.range(self.batch_size * self.trainLength))
 
         tau = (2 * I_indexes + 1) / (2 * self.num_quant)
         residual_counterweights = tf.cast(tau, tf.float32) - tf.cast(residual < 0, tf.float32)
