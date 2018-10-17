@@ -102,7 +102,7 @@ class Qnetwork():
         self.mask = tf.reshape(self.mask, [-1])
 
         self.loss = self.quantile_dist_loss(self.Q, self.targetQ) * self.mask
-
+        print('loss shape', self.loss.shape)
         if scopeName == 'main':
             tf.summary.scalar('loss', self.loss)
             tf.summary.histogram('Q', self.Qout)
