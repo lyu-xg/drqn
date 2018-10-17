@@ -91,7 +91,7 @@ class Qnetwork():
 
         self.actions = tf.placeholder(shape=[None], dtype=tf.int32)
 
-        select = tf.concat([tf.reshape(tf.range(self.batch_size), [-1, 1]),
+        select = tf.concat([tf.reshape(tf.range(self.batch_size*self.trainLength), [-1, 1]),
                             tf.reshape(self.actions, (-1, 1))], axis=1)
         self.Q = tf.gather_nd(self.Qout, select)
         print('Q shape', self.Q.shape)
