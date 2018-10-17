@@ -76,7 +76,7 @@ class Qnetwork():
         # Training stuff and loss
 
         # None stands for batch_size
-        self.sample_terminals = tf.placeholder(tf.int8, shape=[None], name='sample_terminals')
+        self.sample_terminals = tf.placeholder(tf.int32, shape=[None], name='sample_terminals')
         self.sample_rewards = tf.placeholder(tf.float32, shape=[None], name='sample_rewards')
         self.doubleQ = tf.placeholder(tf.float32, shape=(None, self.num_quant), name='doubleQ')
         # self.targetQ = tf.placeholder(shape=[None, num_quant], dtype=tf.float32)
@@ -84,9 +84,10 @@ class Qnetwork():
         end_mul_tiles = tf.transpose(self.rep_row(end_multiplier, self.num_quant))
         # reward_tiles = tf.tile(tf.reshape(self.sample_rewards, [-1,1]), [1, self.num_quant])
         reward_tiles = tf.transpose(self.rep_row(self.sample_rewards, self.num_quant))
-        terminal_tiles = tf.transpose(self.rep_row(self.sample_terminals, self.num_quant))
+        terminal_tiles = tf.transpose(self.rep_row(end_multiplier, self.num_quant))
 
-        self.targetQ = terminal_tiles + (self.discount * self.doubleQ * end_mul_tiles)
+        print(terminal_tiles.shape, terminal_tiles.dtype)
+        self.targetQ = reward_tiles + (self.discount * self.doubleQ * end_mul_tiles)
 
         self.actions = tf.placeholder(shape=[None], dtype=tf.int32)
 
@@ -160,4 +161,4 @@ class Qnetwork():
         return tf.reduce_sum(residual * residual_counterweights) / self.num_quant
 
 if __name__ == '__main__':
-    q = Qnetwork(512, 256, 51, tf.nn.rnn_cell.LSTMCell(num_units=512), 'main')
+    q = Qnetwork(512, 256, tf.nn.rnn_cell.LSTMCell(num_units=512), 'main', num_quant=128)
