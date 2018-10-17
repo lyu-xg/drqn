@@ -91,7 +91,7 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
         if not i:
             start_time = time.time()
 
-        if i <= 0:
+        if i < 0:
             continue
 
         if util.Exiting or not i % ckpt_freq:
@@ -127,8 +127,8 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
             targetQN.batch_size: batch_size
         })
         # end_multiplier = - (trainBatch[:, 4] - 1)
-        doubleQ = Q2[range(batch_size * trace_length), Q1]
-        targetQ = trainBatch[:, 2] + (0.99 * doubleQ * end_multiplier)
+        # doubleQ = Q2[range(batch_size * trace_length), Q1]
+        # targetQ = trainBatch[:, 2] + (0.99 * doubleQ * end_multiplier)
 
         # print(targetQ.shape)
         _, summary = sess.run((mainQN.updateModel, summaryOps), feed_dict={
