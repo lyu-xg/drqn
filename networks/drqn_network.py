@@ -4,8 +4,8 @@ import tensorflow.contrib.slim as slim
 
 
 class Qnetwork():
-    def __init__(self, h_size, a_size, rnn_cell, scopeName):
-        self.h_size, self.a_size = h_size, a_size
+    def __init__(self, h_size, a_size, rnn_cell, scopeName, discount=0.99, **kwargs):
+        self.h_size, self.a_size, self.discount = h_size, a_size, discount
         self.scalarInput = tf.placeholder(shape=[None, 7056], dtype=tf.float32)
         self.batch_size = tf.placeholder(dtype=tf.int32, shape=[])
         self.trainLength = tf.placeholder(dtype=tf.int32, shape=[])
@@ -60,7 +60,14 @@ class Qnetwork():
         self.predict = tf.argmax(self.Qout, 1)
         self.action = self.predict[-1]
 
-        self.targetQ = tf.placeholder(shape=[None], dtype=tf.float32)
+        self.sample_terminals = tf.placeholder(tf.int32, shape=[None], name='sample_terminals')
+        end_multiplier = tf.cast(- (self.sample_terminals - 1), tf.float32)
+
+        self.sample_rewards = tf.placeholder(tf.float32, shape=[None], name='sample_rewards')
+        self.doubleQ = tf.placeholder(tf.float32, shape=(None), name='doubleQ')
+        
+        self.targetQ = self.sample_rewards + self.discount * self.doubleQ * end_multiplier
+        
         self.actions = tf.placeholder(shape=[None], dtype=tf.int32)
         self.actions_onehot = tf.one_hot(
             self.actions, a_size, dtype=tf.float32)

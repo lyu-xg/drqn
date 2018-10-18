@@ -96,12 +96,7 @@ class Qnetwork():
         self.Q = tf.gather_nd(self.Qout, select)
         print('Q shape', self.Q.shape)
 
-        # only train on first half of every trace per Lample & Chatlot 2016
-        self.mask = tf.concat((tf.zeros((self.batch_size, self.trainLength//2)),
-                               tf.ones((self.batch_size, self.trainLength//2))), 1)
-        self.mask = tf.reshape(self.mask, [-1])
-
-        self.loss = self.quantile_dist_loss(self.Q, self.targetQ) * self.mask
+        self.loss = self.quantile_dist_loss(self.Q, self.targetQ) #* self.mask
         print('loss shape', self.loss.shape)
         if scopeName == 'main':
             tf.summary.scalar('loss', self.loss)
@@ -158,8 +153,13 @@ class Qnetwork():
 
         residual = self.huber_loss(residual)
 
-        loss = tf.reduce_sum(residual * residual_counterweights) / self.num_quant
-        print('loss shape inside', loss.shape)
+        # only train on first half of every trace per Lample & Chatlot 2016
+        mask = tf.concat((tf.zeros((self.batch_size, self.trainLength//2, self.num_quant, self.num_quant)),
+                          tf.ones((self.batch_size, self.trainLength//2, self.num_quant, self.num_quant))), 1)
+        mask = tf.reshape(mask, [-1, self.num_quant, self.num_quant])
+
+        loss = tf.reduce_sum(residual * residual_counterweights * mask) / self.num_quant
+        
         return loss
 if __name__ == '__main__':
     q = Qnetwork(512, 256, tf.nn.rnn_cell.LSTMCell(num_units=512), 'main', num_quant=128)

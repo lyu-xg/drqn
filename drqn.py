@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 
 import common as util
-from buffer import TraceBuf
+from buffer import FixedTraceBuf
 from myenv import Env
 from networks.drqn_network import Qnetwork
 from networks.dist_recur_network import Qnetwork as dist_Qnetwork
@@ -41,9 +41,14 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
     if util.checkpoint_exists(identity):
         (exp_buf, env, last_iteration, is_done,
          prev_life_count, action, state, S) = util.load_checkpoint(sess, saver, identity)
+        if not isinstance(exp_buf, FixedTraceBuf):
+            new_expbuf = FixedTraceBuf(trace_length, buf_length=500000)
+            new_expbuf.load_from_legacy(exp_buf)
+            del exp_buf
+            exp_buf = new_expbuf
         start_time = time.time()
     else:
-        exp_buf = TraceBuf(trace_length, scenario_size=2500)
+        exp_buf = FixedTraceBuf(trace_length, buf_length=500000)
         last_iteration = 1 - pretrain_steps
         is_done = True
         prev_life_count = None
@@ -61,15 +66,14 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
 
     for i in range(last_iteration, int(total_iteration)):
         if is_done:
-            total_scenario_reward = exp_buf.get_cache_total_reward()
+            scen_R, scen_L = exp_buf.flush_scenario()
             if i > 0:
-                online_perf_and_length = np.array(
-                    [total_scenario_reward, len(exp_buf.trans_cache)])
+                online_perf_and_length = np.array([scen_R, scen_L])
                 online_perf, online_episode_count = sess.run(onlineOps, feed_dict={
                     online_summary_ph: online_perf_and_length})
                 summary_writer.add_summary(online_perf, i)
                 summary_writer.add_summary(online_episode_count, i)
-            exp_buf.flush_scenario()
+            
             s, r, prev_life_count = env.reset()
             S = [s]
             action, state = mainQN.get_action_and_next_state(sess, None, S)

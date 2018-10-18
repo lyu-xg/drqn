@@ -100,6 +100,40 @@ class TraceBuf:
         return np.reshape(traces, (batch_size * self.trace_length, 
                                    self.transition_length))
 
+class FixedTraceBuf():
+    def __init__(self, trace_length, buf_length=500000):
+        self.trace_length, self.buf_length = trace_length, buf_length
+        self.buf = ExpBuf(size=buf_length)
+        # self.temp_transitions = FrameBuf(size=self.trace_length)
+        self.scenario_cache = [] # lists of transitions
+
+    def load_from_legacy(self, tracebuf):
+        print('dumping legacy trace buf to new trace buf')
+        for scen in tracebuf.buf:
+            self.flush_this_scenario(scen)
+        self.scenario_cache = tracebuf.trans_cache[:]
+        print('dumping done.')
+
+    def flush_this_scenario(self, scenario):
+        for i in range(len(scenario)-self.trace_length+1):
+            self.buf.append(scenario[i:i+self.trace_length])
+        R, L = self.get_cache_total_reward(), len(scenario)
+        scenario.clear()
+        return R, L
+
+    def flush_scenario(self):
+        return self.flush_this_scenario(self.scenario_cache)
+
+    def append_trans(self, trans):
+        self.scenario_cache.append(trans)
+    
+    def get_cache_total_reward(self):
+        return sum(t[2] for t in self.scenario_cache)
+
+    def sample_traces(self, batch_size):
+        return self.buf.sample_batch(batch_size)
+    
+
 class ActionTraceBuf(TraceBuf):
     def __init__(self, trace_length, scenario_size=3000):
         super().__init__(trace_length, scenario_size)
