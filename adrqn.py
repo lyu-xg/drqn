@@ -5,7 +5,7 @@ import numpy as np
 import tensorflow as tf
 
 import common as util
-from buffer import FixedTraceBuf
+from buffer import FixedActionTraceBuf
 from myenv import Env
 from networks.adrqn_network import Qnetwork
 
@@ -41,14 +41,14 @@ def train(trace_length, render_eval=False, h_size=512, action_h_size=512,
     if util.checkpoint_exists(identity):
         (exp_buf, env, last_iteration, is_done,
          prev_life_count, action, state, S) = util.load_checkpoint(sess, saver, identity)
-        if not isinstance(exp_buf, FixedTraceBuf):
-            new_expbuf = FixedTraceBuf(trace_length, buf_length=500000)
+        if not isinstance(exp_buf, FixedActionTraceBuf):
+            new_expbuf = FixedActionTraceBuf(trace_length, buf_length=500000)
             new_expbuf.load_from_legacy(exp_buf)
             del exp_buf
             exp_buf = new_expbuf
         start_time = time.time()
     else:
-        exp_buf = FixedTraceBuf(trace_length, scenario_size=2500)
+        exp_buf = FixedActionTraceBuf(trace_length, scenario_size=2500)
         last_iteration = 1 - pretrain_steps
         is_done = True
         action = 0

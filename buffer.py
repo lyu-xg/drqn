@@ -118,7 +118,8 @@ class FixedTraceBuf():
         for i in range(len(scenario)-self.trace_length+1):
             self.buf.append(scenario[i:i+self.trace_length])
         R, L = self.get_cache_total_reward(), len(scenario)
-        scenario.clear()
+        if isinstance(scenario, list):
+            scenario.clear()
         return R, L
 
     def flush_scenario(self):
@@ -131,8 +132,22 @@ class FixedTraceBuf():
         return sum(t[2] for t in self.scenario_cache)
 
     def sample_traces(self, batch_size):
-        return self.buf.sample_batch(batch_size)
+        return np.reshape(self.buf.sample_batch(batch_size),
+                          (batch_size * self.trace_length, -1))
     
+
+class FixedActionTraceBuf(FixedTraceBuf):
+    def __init__(self, trace_length, buf_length=500000):
+        super().__init__(trace_length+1, buf_length)
+    
+    def sample_traces(self, batch_size):
+        trace_len = self.trace_length - 1
+        traces = self.buf.sample_batch(batch_size) # shape: (batch_size, trace_len+1, trans_len)
+        prev_actions = traces[:, :trace_len, 2:3] # shape: (batch_size, trace_len, 1)
+        combined = np.concatenate([traces[:, :trace_len, :], prev_actions], axis=2)
+        return np.reshape(combined, (batch_size * trace_len, -1)) 
+
+        
 
 class ActionTraceBuf(TraceBuf):
     def __init__(self, trace_length, scenario_size=3000):

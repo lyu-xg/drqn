@@ -43,6 +43,7 @@ class Env:
         return self.env.action_space.sample()
 
     def reset(self):
+        self.frame_count = 0
         frames, rewards = [self.preprocess(self.env.reset())], 0
         for _ in range(np.random.randint(self.skip - 1, self.noop)):
             frame, reward, terminal, summary = self.env.step(self.rand_action())
@@ -53,8 +54,11 @@ class Env:
 
         return np.maximum(frames[-2], frames[-1]), rewards, summary['ale.lives']
 
-    def step(self, action):
+    def step(self, action, epsilon=0.1):
+        self.frame_count += self.skip
         frames, rewards = [], 0
+        if np.random.random() < epsilon:
+            action = self.rand_action()
         for _ in range(self.skip):
             frame, reward, terminal, summary = self.env.step(action)
             frames.append(self.preprocess(frame))
@@ -64,7 +68,7 @@ class Env:
         max_frame = (np.maximum(frames[-2], frames[-1])
                      if len(frames) > 1
                      else frames[0])
-        return max_frame, rewards, terminal, summary['ale.lives']
+        return max_frame, rewards, terminal or self.frame_count > 3e5, summary['ale.lives']
 
     def render(self):
         self.env.render()

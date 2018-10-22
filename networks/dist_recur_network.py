@@ -5,6 +5,7 @@ import tensorflow.contrib.slim as slim
 
 class Qnetwork():
     def __init__(self, h_size, a_size, rnn_cell, scopeName, num_quant=50, discount=0.99, **kwargs):
+        self.scopeName = scopeName
         self.h_size, self.a_size, self.num_quant, self.discount = h_size, a_size, num_quant, discount
         self.scalarInput = tf.placeholder(shape=[None, 7056], dtype=tf.float32)
         self.batch_size = tf.placeholder(dtype=tf.int32, shape=[])
@@ -47,7 +48,7 @@ class Qnetwork():
         # self.streamA, self.streamV = tf.split(self.rnn, 2, axis=1)
 
         self.QW = tf.Variable(tf.random_normal([h_size, a_size*num_quant]))
-        self.Qout = tf.reshape(tf.matmul(self.rnn, self.QW), (-1, a_size, num_quant))
+        self.Qout = tf.reshape(tf.matmul(self.rnn, self.QW), (-1, a_size, num_quant)) # Qout exploded
 
         # self.QW = tf.Variable(tf.random_normal([h_size//2, a_size*num_quant]))
         # self.VW = tf.Variable(tf.random_normal([h_size//2, 1*num_quant]))
@@ -102,6 +103,7 @@ class Qnetwork():
             tf.summary.scalar('loss', self.loss)
             tf.summary.histogram('Q', self.Qout)
             tf.summary.histogram('hidden', self.rnn_state)
+        # self.debug = self.rnn
 
         self.trainer = tf.train.RMSPropOptimizer(
             0.00025, momentum=0.95, epsilon=0.01)
@@ -128,7 +130,7 @@ class Qnetwork():
         })
 
     @staticmethod
-    def rep_row(row, times=0):
+    def rep_row(row, times):
         return tf.reshape(tf.tile(row, [times]), [times,-1])
 
     @staticmethod
@@ -148,17 +150,26 @@ class Qnetwork():
             lambda x: self.rep_row(tf.range(self.num_quant), self.num_quant),
             tf.range(self.batch_size * self.trainLength))
 
-        tau = (2 * I_indexes + 1) / (2 * self.num_quant)
+        tau = (2 * I_indexes + 1) / (2 * self.num_quant) # evenly spaced from 0 to 1
+        
+        residual = self.huber_loss(residual)
         residual_counterweights = tf.cast(tau, tf.float32) - tf.cast(residual < 0, tf.float32)
 
-        residual = self.huber_loss(residual)
+        if self.scopeName == 'main':
+            tf.summary.histogram('targetQ', J)
+            tf.summary.histogram('predictQ', I)
+            tf.summary.histogram('residual', residual)
+            tf.summary.histogram('residual_counterweights', residual_counterweights)
+            
+
+        self.debug = (residual[-1], residual_counterweights[-1])
 
         # only train on first half of every trace per Lample & Chatlot 2016
         mask = tf.concat((tf.zeros((self.batch_size, self.trainLength//2, self.num_quant, self.num_quant)),
                           tf.ones((self.batch_size, self.trainLength//2, self.num_quant, self.num_quant))), 1)
         mask = tf.reshape(mask, [-1, self.num_quant, self.num_quant])
 
-        loss = tf.reduce_sum(residual * residual_counterweights * mask) / self.num_quant
+        loss = tf.reduce_sum(residual * residual_counterweights / self.num_quant * mask)
         
         return loss
 if __name__ == '__main__':

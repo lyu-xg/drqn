@@ -13,7 +13,7 @@ from networks.dist_recur_network import Qnetwork as dist_Qnetwork
 def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
           ckpt_freq=500000, summary_freq=1000, eval_freq=10000,
           batch_size=32, env_name='SpaceInvaders', total_iteration=5e7,
-          pretrain_steps=50000, num_quant=0):
+          pretrain_steps=5000, num_quant=0):
     network = dist_Qnetwork if num_quant else Qnetwork
     # env_name += 'NoFrameskip-v4'
     identity = 'stack={},env={},mod={},h_size={}'.format(
@@ -80,7 +80,7 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
 
         S = [S[-1]]
         for _ in range(4):
-            s, r, is_done, life_count = env.step(action)
+            s, r, is_done, life_count = env.step(action, epsilon=util.epsilon_at(i))
             exp_buf.append_trans((
                 S[-1], action, r, s,  # not cliping reward (huber loss)
                 (prev_life_count and life_count < prev_life_count or is_done)
@@ -89,14 +89,12 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
             prev_life_count = life_count
 
         action, state = mainQN.get_action_and_next_state(sess, state, S)
-        if np.random.random() < util.epsilon_at(i):
-            action = env.rand_action()
+        # if np.random.random() < util.epsilon_at(i):
+        #     action = env.rand_action()
 
         if not i:
             start_time = time.time()
 
-        if i < 0:
-            continue
 
         if util.Exiting or not i % ckpt_freq:
             util.checkpoint(sess, saver, identity,
@@ -104,6 +102,9 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
                        prev_life_count, action, state, S)
             if util.Exiting:
                 raise SystemExit
+
+        if i < 0:
+            continue
 
         if not i % target_update_freq:
             sess.run(updateOps)
@@ -130,12 +131,16 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
             targetQN.state_init: state_train,
             targetQN.batch_size: batch_size
         })
+        # print(debug)
+        # print(Q2)
         # end_multiplier = - (trainBatch[:, 4] - 1)
         # doubleQ = Q2[range(batch_size * trace_length), Q1]
         # targetQ = trainBatch[:, 2] + (0.99 * doubleQ * end_multiplier)
 
         # print(targetQ.shape)
-        _, summary = sess.run((mainQN.updateModel, summaryOps), feed_dict={
+        # print([sum(f) for f in trainBatch[:, 0]])
+        # print(trainBatch[:, 0][0].shape)
+        _, summary, loss = sess.run((mainQN.updateModel, summaryOps, mainQN.loss), feed_dict={
             mainQN.scalarInput: np.vstack(trainBatch[:, 0]/255.0),
             mainQN.sample_rewards: trainBatch[:, 2],
             mainQN.sample_terminals: trainBatch[:, 4],
@@ -145,6 +150,11 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
             mainQN.state_init: state_train,
             mainQN.batch_size: batch_size
         })
+
+        print('loss:', loss)
+        # print(r)
+        # print(rc)
+        # print(debug)
 
         if not i % summary_freq:
             summary_writer.add_summary(summary, i)
@@ -166,16 +176,21 @@ def evaluate(sess, mainQN, env_name, skip=6, scenario_count=3, is_render=False):
 
     def total_scenario_reward():
         (s, R, _), t, state = env.reset(), False, None
+        frame_count = 0
         while not t:
+            frame_count += 4
             action, state = mainQN.get_action_and_next_state(sess, state, [s])
-            s, r, t, _ = env.step(action)
+            s, r, t, _ = env.step(action, epsilon=0.1)
             R += r
             if is_render:
                 env.render()
+            if frame_count and not frame_count % 10000:
+                print(frame_count, action)
         return R
 
     res = np.array([total_scenario_reward() for _ in range(scenario_count)])
     print(time.time() - start_time, 'seconds to evaluate', flush=1)
+    print('Eval mean', np.mean(res))
     return np.mean(res), np.std(res)
 
 

@@ -3,7 +3,7 @@
 # Run Results
 log/*
 ckpts/*
-backup/*
+*backup/*
 test.py
 
 # Byte-compiled / optimized / DLL files
