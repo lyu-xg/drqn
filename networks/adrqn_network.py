@@ -6,7 +6,7 @@ import tensorflow.contrib.slim as slim
 class Qnetwork():
     def __init__(self, h_size, a_size, action_h_size, rnn_cell, scopeName, discount=0.99):
         self.h_size, self.a_size, self.discount = h_size, a_size, discount
-        self.scalarInput = tf.placeholder(shape=[None, 7056], dtype=tf.float32, name='frameInput')
+        self.scalarInput = tf.placeholder(shape=[None, 7056], dtype=tf.int8, name='frameInput')
         self.batch_size = tf.placeholder(dtype=tf.int32, shape=[], name='batchSize')
         self.trainLength = tf.placeholder(dtype=tf.int32, shape=[], name='trainLength')
 
@@ -18,7 +18,7 @@ class Qnetwork():
 
         self.frameShape = tf.constant((84, 84, 1), dtype=tf.int32)
 #         self.frames = tf.reshape(self.scalarInput, tf.concat(([self.batch_size*self.trainLength], self.frameShape), 0))
-        self.frames = tf.reshape(self.scalarInput, [-1, 84, 84, 1])
+        self.frames = tf.reshape(self.scalarInput/255, [-1, 84, 84, 1])
         self.conv1 = slim.convolution2d(
             inputs=self.frames, num_outputs=32,
             kernel_size=(8, 8), stride=(4, 4), padding='VALID',
@@ -109,7 +109,7 @@ class Qnetwork():
     def get_action_and_next_state(self, sess, state, prev_actions, frames):
         state = state or (np.zeros((1, self.h_size)),) * 2
         return sess.run([self.action, self.rnn_state], feed_dict={
-            self.scalarInput: np.vstack(np.array(frames)/255.0),
+            self.scalarInput: np.vstack(np.array(frames)),
             self.actionsInput: prev_actions,
             self.trainLength: len(frames),
             self.state_init: state,

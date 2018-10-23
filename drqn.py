@@ -120,13 +120,13 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
         # cols are: (s', a, r, s, t, a')
 
         Q1 = sess.run(mainQN.predict, feed_dict={
-            mainQN.scalarInput: np.vstack(trainBatch[:, 3]/255.0),
+            mainQN.scalarInput: np.vstack(trainBatch[:, 3]),
             mainQN.trainLength: trace_length,
             mainQN.state_init: state_train,
             mainQN.batch_size: batch_size
         })
         Q2 = sess.run(targetQN.Qout, feed_dict={
-            targetQN.scalarInput: np.vstack(trainBatch[:, 3]/255.0),
+            targetQN.scalarInput: np.vstack(trainBatch[:, 3]),
             targetQN.trainLength: trace_length,
             targetQN.state_init: state_train,
             targetQN.batch_size: batch_size
@@ -141,7 +141,7 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
         # print([sum(f) for f in trainBatch[:, 0]])
         # print(trainBatch[:, 0][0].shape)
         _, summary, loss = sess.run((mainQN.updateModel, summaryOps, mainQN.loss), feed_dict={
-            mainQN.scalarInput: np.vstack(trainBatch[:, 0]/255.0),
+            mainQN.scalarInput: np.vstack(trainBatch[:, 0]),
             mainQN.sample_rewards: trainBatch[:, 2],
             mainQN.sample_terminals: trainBatch[:, 4],
             mainQN.doubleQ: Q2[range(batch_size * trace_length), Q1],

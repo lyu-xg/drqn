@@ -119,14 +119,14 @@ def train(trace_length, render_eval=False, h_size=512, action_h_size=512,
         trainBatch = exp_buf.sample_traces(batch_size)
 
         Q1 = sess.run(mainQN.predict, feed_dict={
-            mainQN.scalarInput: np.vstack(trainBatch[:, 3]/255.0),
+            mainQN.scalarInput: np.vstack(trainBatch[:, 3]),
             mainQN.actionsInput: trainBatch[:, 1],
             mainQN.trainLength: trace_length,
             mainQN.state_init: state_train,
             mainQN.batch_size: batch_size
         })
         Q2 = sess.run(targetQN.Qout, feed_dict={
-            targetQN.scalarInput: np.vstack(trainBatch[:, 3]/255.0),
+            targetQN.scalarInput: np.vstack(trainBatch[:, 3]),
             targetQN.actionsInput: trainBatch[:, 1],
             targetQN.trainLength: trace_length,
             targetQN.state_init: state_train,
@@ -137,7 +137,7 @@ def train(trace_length, render_eval=False, h_size=512, action_h_size=512,
         # targetQ = trainBatch[:, 2] + (0.99 * doubleQ * end_multiplier)
 
         _, summary = sess.run((mainQN.updateModel, summaryOps), feed_dict={
-            mainQN.scalarInput: np.vstack(trainBatch[:, 0]/255.0),
+            mainQN.scalarInput: np.vstack(trainBatch[:, 0]),
             mainQN.actionsInput: trainBatch[:, 5],
             mainQN.sample_rewards: trainBatch[:, 2],
             mainQN.sample_terminals: trainBatch[:, 4],

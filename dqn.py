@@ -112,11 +112,11 @@ def train(stack_length, render_eval=False, h_size=512, target_update_freq=10000,
         trainBatch = exp_buf.sample_batch(batch_size)
 
         Q1 = sess.run(mainQN.predict, feed_dict={
-            mainQN.scalarInput: np.vstack(trainBatch[3]/255.0),
+            mainQN.scalarInput: np.vstack(trainBatch[3]),
             mainQN.batch_size: batch_size
         })
         Q2 = sess.run(targetQN.Qout, feed_dict={
-            targetQN.scalarInput: np.vstack(trainBatch[3]/255.0),
+            targetQN.scalarInput: np.vstack(trainBatch[3]),
             targetQN.batch_size: batch_size
         })
         end_multiplier = - (trainBatch[4] - 1)
@@ -125,7 +125,7 @@ def train(stack_length, render_eval=False, h_size=512, target_update_freq=10000,
 
         # print(targetQ.shape)
         _, summary = sess.run((mainQN.updateModel, summaryOps), feed_dict={
-            mainQN.scalarInput: np.vstack(trainBatch[0]/255.0),
+            mainQN.scalarInput: np.vstack(trainBatch[0]),
             mainQN.targetQ: targetQ,
             mainQN.actions: trainBatch[1],
             mainQN.batch_size: batch_size

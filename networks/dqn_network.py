@@ -6,11 +6,11 @@ import tensorflow.contrib.slim as slim
 class Qnetwork():
     def __init__(self, h_size, a_size, stack_size, scopeName):
         self.h_size, self.a_size, self.stack_size = h_size, a_size, stack_size
-        self.scalarInput = tf.placeholder(shape=[None, 84*84], dtype=tf.float32)
+        self.scalarInput = tf.placeholder(shape=[None, 84*84], dtype=tf.int8)
         self.batch_size = tf.placeholder(dtype=tf.int32, shape=[])
         self.trainLength = tf.placeholder(dtype=tf.int32, shape=[])
 
-        self.frames = tf.reshape(self.scalarInput, [-1, 84, 84, stack_size])
+        self.frames = tf.reshape(self.scalarInput/255, [-1, 84, 84, stack_size])
         self.conv1 = slim.convolution2d(
             inputs=self.frames, num_outputs=32,
             kernel_size=(8, 8), stride=(4, 4), padding='VALID',
@@ -69,7 +69,7 @@ class Qnetwork():
 
     def get_action(self, sess, frames):
         return sess.run(self.action, feed_dict={
-            self.scalarInput: np.vstack(np.array(frames)/255.0),
+            self.scalarInput: np.vstack(np.array(frames)),
             self.batch_size: 1
         })
 
