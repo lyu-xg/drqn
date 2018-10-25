@@ -7,7 +7,7 @@ class Qnetwork():
     def __init__(self, h_size, a_size, rnn_cell, scopeName, num_quant=50, discount=0.99, **kwargs):
         self.scopeName = scopeName
         self.h_size, self.a_size, self.num_quant, self.discount = h_size, a_size, num_quant, discount
-        self.scalarInput = tf.placeholder(shape=[None, 7056], dtype=tf.int8)
+        self.scalarInput = tf.placeholder(shape=[None, 7056], dtype=tf.uint8)
         self.batch_size = tf.placeholder(dtype=tf.int32, shape=[])
         self.trainLength = tf.placeholder(dtype=tf.int32, shape=[])
 
@@ -105,8 +105,8 @@ class Qnetwork():
             tf.summary.histogram('hidden', self.rnn_state)
         # self.debug = self.rnn
 
-        self.trainer = tf.train.RMSPropOptimizer(
-            0.00025, momentum=0.95, epsilon=0.01)
+        self.trainer = tf.train.AdamOptimizer(
+            learning_rate=0.00005, epsilon=0.01/32)
         self.updateModel = self.trainer.minimize(self.loss)
 
     # def combine_V_A(self, V, A):

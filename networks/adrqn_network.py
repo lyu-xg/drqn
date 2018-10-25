@@ -6,7 +6,7 @@ import tensorflow.contrib.slim as slim
 class Qnetwork():
     def __init__(self, h_size, a_size, action_h_size, rnn_cell, scopeName, discount=0.99):
         self.h_size, self.a_size, self.discount = h_size, a_size, discount
-        self.scalarInput = tf.placeholder(shape=[None, 7056], dtype=tf.int8, name='frameInput')
+        self.scalarInput = tf.placeholder(shape=[None, 7056], dtype=tf.uint8, name='frameInput')
         self.batch_size = tf.placeholder(dtype=tf.int32, shape=[], name='batchSize')
         self.trainLength = tf.placeholder(dtype=tf.int32, shape=[], name='trainLength')
 

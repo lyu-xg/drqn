@@ -6,29 +6,35 @@ import tensorflow.contrib.slim as slim
 class Qnetwork():
     def __init__(self, h_size, a_size, stack_size, scopeName):
         self.h_size, self.a_size, self.stack_size = h_size, a_size, stack_size
-        self.scalarInput = tf.placeholder(shape=[None, 84*84], dtype=tf.int8)
+
+        self.scalarInput = tf.placeholder(shape=[None, stack_size, 84*84], dtype=tf.uint8)
+        self.frames = tf.reshape(self.scalarInput/255, [-1, stack_size, 84, 84])
+
         self.batch_size = tf.placeholder(dtype=tf.int32, shape=[])
         self.trainLength = tf.placeholder(dtype=tf.int32, shape=[])
 
-        self.frames = tf.reshape(self.scalarInput/255, [-1, 84, 84, stack_size])
         self.conv1 = slim.convolution2d(
             inputs=self.frames, num_outputs=32,
             kernel_size=(8, 8), stride=(4, 4), padding='VALID',
+            data_format='NCHW',
             biases_initializer=None, scope=scopeName+'_conv1'
         )
         self.conv2 = slim.convolution2d(
             inputs=self.conv1, num_outputs=64,
             kernel_size=(4, 4), stride=(2, 2), padding='VALID',
+            data_format='NCHW',
             biases_initializer=None, scope=scopeName+'_conv2'
         )
         self.conv3 = slim.convolution2d(
             inputs=self.conv2, num_outputs=64,
             kernel_size=(3, 3), stride=(1, 1), padding='VALID',
+            data_format='NCHW',
             biases_initializer=None, scope=scopeName+'_conv3'
         )
         self.conv4 = slim.convolution2d(
             inputs=self.conv3, num_outputs=h_size,
             kernel_size=(7, 7), stride=(1, 1), padding='VALID',
+            data_format='NCHW',
             biases_initializer=None, scope=scopeName+'_conv4'
         )
         
@@ -69,7 +75,7 @@ class Qnetwork():
 
     def get_action(self, sess, frames):
         return sess.run(self.action, feed_dict={
-            self.scalarInput: np.vstack(np.array(frames)),
+            self.scalarInput: [frames],
             self.batch_size: 1
         })
 

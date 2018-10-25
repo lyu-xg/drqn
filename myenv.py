@@ -7,7 +7,6 @@ ZERO_FRAME = np.zeros((7056,), dtype=np.int8)
 def to_grayscale(frame):
     return np.mean(frame, axis=2).astype(np.uint8)
 
-
 def downsample(frame, shape):
     # cv2 reverses the input shape for some reason..
     # so let's reverse it back..

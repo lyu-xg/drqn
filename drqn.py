@@ -10,7 +10,7 @@ from myenv import Env
 from networks.drqn_network import Qnetwork
 from networks.dist_recur_network import Qnetwork as dist_Qnetwork
 
-def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
+def train(trace_length, render_eval=False, h_size=512, target_update_freq=1000,
           ckpt_freq=500000, summary_freq=1000, eval_freq=10000,
           batch_size=32, env_name='SpaceInvaders', total_iteration=5e7,
           pretrain_steps=5000, num_quant=0):
@@ -151,7 +151,7 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
             mainQN.batch_size: batch_size
         })
 
-        print('loss:', loss)
+        # print('loss:', loss)
         # print(r)
         # print(rc)
         # print(debug)
@@ -165,6 +165,7 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
                 evalOps, feed_dict={eval_summary_ph: eval_res})
             summary_writer.add_summary(perf, i)
             summary_writer.add_summary(perf_std, i)
+            print(identity)
     # In the end
     sess.close()
     util.checkpoint(sess, saver, identity)

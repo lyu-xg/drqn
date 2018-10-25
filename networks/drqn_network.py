@@ -6,38 +6,38 @@ import tensorflow.contrib.slim as slim
 class Qnetwork():
     def __init__(self, h_size, a_size, rnn_cell, scopeName, discount=0.99, **kwargs):
         self.h_size, self.a_size, self.discount = h_size, a_size, discount
-        self.scalarInput = tf.placeholder(shape=[None, 7056], dtype=tf.int8)
+        self.scalarInput = tf.placeholder(shape=[None, 7056], dtype=tf.uint8)
         self.batch_size = tf.placeholder(dtype=tf.int32, shape=[])
         self.trainLength = tf.placeholder(dtype=tf.int32, shape=[])
 
-        self.frameShape = tf.constant((84, 84, 1), dtype=tf.int32)
-#         self.frames = tf.reshape(self.scalarInput, tf.concat(([self.batch_size*self.trainLength], self.frameShape), 0))
-        self.frames = tf.reshape(self.scalarInput/255, [-1, 84, 84, 1])
+        self.frames = tf.reshape(self.scalarInput/255, [-1, 1, 84, 84])
         self.conv1 = slim.convolution2d(
             inputs=self.frames, num_outputs=32,
             kernel_size=(8, 8), stride=(4, 4), padding='VALID',
+            data_format='NCHW',
             biases_initializer=None, scope=scopeName+'_conv1'
         )
         self.conv2 = slim.convolution2d(
             inputs=self.conv1, num_outputs=64,
             kernel_size=(4, 4), stride=(2, 2), padding='VALID',
+            data_format='NCHW',
             biases_initializer=None, scope=scopeName+'_conv2'
         )
         self.conv3 = slim.convolution2d(
             inputs=self.conv2, num_outputs=64,
             kernel_size=(3, 3), stride=(1, 1), padding='VALID',
+            data_format='NCHW',
             biases_initializer=None, scope=scopeName+'_conv3'
         )
         self.conv4 = slim.convolution2d(
             inputs=self.conv3, num_outputs=h_size,
             kernel_size=(7, 7), stride=(1, 1), padding='VALID',
+            data_format='NCHW',
             biases_initializer=None, scope=scopeName+'_conv4'
         )
 
         self.convFlat = tf.reshape(
             slim.flatten(self.conv4), [self.batch_size, self.trainLength, h_size])
-
-        print(self.convFlat.shape)
 
         self.state_init = rnn_cell.zero_state(self.batch_size, tf.float32)
         self.rnn, self.rnn_state = tf.nn.dynamic_rnn(
