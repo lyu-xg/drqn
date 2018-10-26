@@ -47,7 +47,8 @@ class Qnetwork():
 
         # self.streamA, self.streamV = tf.split(self.rnn, 2, axis=1)
 
-        self.QW = tf.Variable(tf.random_normal([h_size, a_size*num_quant]))
+        xavier_init = tf.contrib.layers.xavier_initializer()
+        self.QW = tf.Variable(xavier_init([h_size, a_size*num_quant]))
         self.Qout = tf.reshape(tf.matmul(self.rnn, self.QW), (-1, a_size, num_quant)) # Qout exploded
 
         # self.QW = tf.Variable(tf.random_normal([h_size//2, a_size*num_quant]))

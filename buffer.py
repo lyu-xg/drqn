@@ -53,7 +53,7 @@ class StackBuf(ExpBuf):
 
     def get_and_reset_reward_and_length(self):
         r, self.scenario_reward = self.scenario_reward, 0
-        l, self.scenario_length = self.scenario_reward, 0
+        l, self.scenario_length = self.scenario_length, 0
         return r, l
 
     def sample_batch(self, size):

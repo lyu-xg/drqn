@@ -10,10 +10,10 @@ from myenv import Env
 from networks.drqn_network import Qnetwork
 from networks.dist_recur_network import Qnetwork as dist_Qnetwork
 
-def train(trace_length, render_eval=False, h_size=512, target_update_freq=1000,
+def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
           ckpt_freq=500000, summary_freq=1000, eval_freq=10000,
           batch_size=32, env_name='SpaceInvaders', total_iteration=5e7,
-          pretrain_steps=5000, num_quant=0):
+          pretrain_steps=50000, num_quant=0):
     network = dist_Qnetwork if num_quant else Qnetwork
     # env_name += 'NoFrameskip-v4'
     identity = 'stack={},env={},mod={},h_size={}'.format(
@@ -24,8 +24,10 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=1000,
     a_size = env.n_actions
 
     tf.reset_default_graph()
-    cell = tf.nn.rnn_cell.LSTMCell(num_units=h_size)
-    cellT = tf.nn.rnn_cell.LSTMCell(num_units=h_size)
+    # cell = tf.nn.rnn_cell.LSTMCell(num_units=h_size)
+    # cellT = tf.nn.rnn_cell.LSTMCell(num_units=h_size)
+    cell = tf.contrib.cudnn_rnn.CudnnCompatibleLSTMCell(num_units=h_size)
+    cellT = tf.contrib.cudnn_rnn.CudnnCompatibleLSTMCell(num_units=h_size)
     mainQN = network(h_size, a_size, cell, 'main', num_quant=num_quant)
     targetQN = network(h_size, a_size, cellT, 'target', num_quant=num_quant)
     init = tf.global_variables_initializer()

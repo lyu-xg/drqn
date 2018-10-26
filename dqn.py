@@ -9,6 +9,9 @@ from myenv import Env
 from networks.dqn_network import Qnetwork
 
 
+EVAL_EPSILON = 0.05
+MAX_EVAL_STEP = 60 * 60 * 5 # 60HZ for 5 minutes
+
 def reset(stack_length, env, frame_buf):
     frame, R, lives = env.reset()
     frame_buf.append(frame)
@@ -77,16 +80,13 @@ def train(stack_length, render_eval=False, h_size=512, target_update_freq=10000,
             _, prev_life_count = reset(stack_length, env, frame_buf)
             action = mainQN.get_action(sess, list(frame_buf))
 
-        s, r, is_done, life_count = env.step(action)
+        s, r, is_done, life_count = env.step(action, epsilon=util.epsilon_at(i))
         exp_buf.append_trans((
             list(frame_buf), action, r, list(frame_buf.append(s)),  # not cliping reward (huber loss)
             (prev_life_count and life_count < prev_life_count or is_done)
         ))
         prev_life_count = life_count
-
-        action = (env.rand_action() 
-                  if np.random.random() < util.epsilon_at(i)
-                  else mainQN.get_action(sess, list(frame_buf)))
+        action = mainQN.get_action(sess, list(frame_buf))
 
         if not i:
             start_time = util.time()
@@ -145,20 +145,21 @@ def train(stack_length, render_eval=False, h_size=512, target_update_freq=10000,
     util.checkpoint(sess, saver, identity)
 
 
-def evaluate(sess, mainQN, env_name, skip=6, scenario_count=3, is_render=False):
+def evaluate(sess, mainQN, env_name, skip=4, scenario_count=5, is_render=False):
     start_time = util.time()
     env = Env(env_name=env_name, skip=skip)
     frame_buf = FrameBuf(size=mainQN.stack_size)
     def total_scenario_reward():
         t = 0
         R, _ = reset(mainQN.stack_size, env, frame_buf)
-        while not t:
+        for _ in range(MAX_EVAL_STEP):
             action = mainQN.get_action(sess, list(frame_buf))
-            s, r, t, _ = env.step(action)
+            s, r, t, _ = env.step(action, epsilon=EVAL_EPSILON)
             frame_buf.append(s)
             R += r
             if is_render:
                 env.render()
+            if t: break
         return R
 
     res = np.array([total_scenario_reward() for _ in range(scenario_count)])

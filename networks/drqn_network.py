@@ -48,8 +48,9 @@ class Qnetwork():
 
         self.streamA, self.streamV = tf.split(self.rnn, 2, axis=1)
 
-        self.AW = tf.Variable(tf.random_normal([h_size//2, a_size]))
-        self.VW = tf.Variable(tf.random_normal([h_size//2, 1]))
+        xavier_init = tf.contrib.layers.xavier_initializer()
+        self.AW = tf.Variable(xavier_init([h_size//2, a_size]))
+        self.VW = tf.Variable(xavier_init([h_size//2, 1]))
         self.A = tf.matmul(self.streamA, self.AW)
         self.V = tf.matmul(self.streamV, self.VW)
 

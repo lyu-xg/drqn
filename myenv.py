@@ -56,7 +56,7 @@ class Env:
     def step(self, action, epsilon=0.1):
         self.frame_count += self.skip
         frames, rewards = [], 0
-        if np.random.random() < epsilon:
+        if epsilon and np.random.random() < epsilon:
             action = self.rand_action()
         for _ in range(self.skip):
             frame, reward, terminal, summary = self.env.step(action)
