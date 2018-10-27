@@ -34,10 +34,11 @@ class ExpBuf:
             yield self[i]
 
     def sample_batch(self, size):
-        return np.array([self[i] for i in np.random.choice(len(self), size)])
+        return [self[i] for i in np.random.choice(len(self), size)]
 
 
 class StackBuf(ExpBuf):
+    # used by DQN
     def __init__(self, size=MILLION):
         super().__init__(size=size)
         self.scenario_reward = 0
@@ -58,10 +59,11 @@ class StackBuf(ExpBuf):
 
     def sample_batch(self, size):
         batch = super().sample_batch(size)
-        S_prime, A, R, S, T = zip(*batch)
-        S_prime = np.array([np.array(s) for s in S_prime])
-        S = np.array([np.array(s) for s in S])
-        return S_prime, np.array(A), np.array(R), S, np.array(T)
+        return zip(*batch)
+        # S_prime, A, R, S, T = zip(*batch)
+        # S_prime = np.array([np.array(s) for s in S_prime])
+        # S = np.array([np.array(s) for s in S])
+        # return S_prime, np.array(A), np.array(R), S, np.array(T)
 
 class TraceBuf:
     def __init__(self, trace_length, scenario_size=10000):
