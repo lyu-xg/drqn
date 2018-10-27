@@ -26,29 +26,23 @@ def reset(stack_length, env, frame_buf):
 
 def train(stack_length, render_eval=False, h_size=512, target_update_freq=10000,
           ckpt_freq=500000, summary_freq=1000, eval_freq=10000,
-          batch_size=32, env_name='SpaceInvaders', total_iteration=5e7,
+          batch_size=32, env_name='Pong', total_iteration=5e7,
           pretrain_steps=50000):
     identity = 'stack={},env={},mod={}'.format(stack_length, env_name, 'dqn')
 
     env = Env(env_name=env_name, skip=4)
-    a_size = env.n_actions
 
     tf.reset_default_graph()
-    mainQN = Qnetwork(h_size, a_size, stack_length, 'main')
-    targetQN = Qnetwork(h_size, a_size, stack_length, 'target')
-    init = tf.global_variables_initializer()
-    updateOps = util.getTargetUpdateOps(tf.trainable_variables())
-    saver = tf.train.Saver(max_to_keep=5)
 
-    config = tf.ConfigProto()
-    config.gpu_options.allow_growth = True
-    sess = tf.Session(config=config)
-    sess.run(init)
-    summary_writer = tf.summary.FileWriter('./log/' + identity, sess.graph)
+    # loads of side effect! e.g. initialize session, creating graph, etc.
+    mainQN = Qnetwork(h_size, env.n_actions, stack_length, 'main')
+    
+    saver = tf.train.Saver(max_to_keep=5)
+    summary_writer = tf.summary.FileWriter('./log/' + identity, mainQN.sess.graph)
 
     if util.checkpoint_exists(identity):
         (exp_buf, env, last_iteration, is_done,
-         prev_life_count, action, frame_buf) = util.load_checkpoint(sess, saver, identity)
+         prev_life_count, action, frame_buf) = util.load_checkpoint(mainQN.sess, saver, identity)
         start_time = util.time()
     else:
         exp_buf = StackBuf(size=util.MILLION)
@@ -56,7 +50,7 @@ def train(stack_length, render_eval=False, h_size=512, target_update_freq=10000,
         last_iteration = 1 - pretrain_steps
         is_done = True
         prev_life_count = None
-        sess.run(updateOps)
+        mainQN.update_target_network()
 
     summaryOps = tf.summary.merge_all()
 
@@ -72,13 +66,13 @@ def train(stack_length, render_eval=False, h_size=512, target_update_freq=10000,
         if is_done:
             scen_reward, scen_length = exp_buf.get_and_reset_reward_and_length()
             if i > 0:
-                online_perf, online_episode_count = sess.run(onlineOps, feed_dict={
+                online_perf, online_episode_count = mainQN.sess.run(onlineOps, feed_dict={
                     online_summary_ph: np.array([scen_reward, scen_length])})
                 summary_writer.add_summary(online_perf, i)
                 summary_writer.add_summary(online_episode_count, i)
 
             _, prev_life_count = reset(stack_length, env, frame_buf)
-            action = mainQN.get_action(sess, list(frame_buf))
+            action = mainQN.get_action([list(frame_buf)])
 
         s, r, is_done, life_count = env.step(action, epsilon=util.epsilon_at(i))
         exp_buf.append_trans((
@@ -86,23 +80,22 @@ def train(stack_length, render_eval=False, h_size=512, target_update_freq=10000,
             (prev_life_count and life_count < prev_life_count or is_done)
         ))
         prev_life_count = life_count
-        action = mainQN.get_action(sess, list(frame_buf))
+        action = mainQN.get_action([list(frame_buf)])
 
         if not i:
             start_time = util.time()
             
-        if i <= 0:
-            continue
+        if i <= 0: continue
 
         if util.Exiting or not i % ckpt_freq:
-            util.checkpoint(sess, saver, identity,
+            util.checkpoint(mainQN.sess, saver, identity,
                        exp_buf, env, i, is_done,
                        prev_life_count, action, frame_buf)
             if util.Exiting:
                 raise SystemExit
 
         if not i % target_update_freq:
-            sess.run(updateOps)
+            mainQN.update_target_network()
             cur_time = util.time()
             print('[{}{}:{}] took {} seconds to {} steps'.format(
                 'dqn', stack_length, i, cur_time-start_time, target_update_freq), flush=1)
@@ -111,41 +104,22 @@ def train(stack_length, render_eval=False, h_size=512, target_update_freq=10000,
         #　TRAIN
         trainBatch = exp_buf.sample_batch(batch_size)
 
-        Q1 = sess.run(mainQN.predict, feed_dict={
-            mainQN.scalarInput: trainBatch[3],
-            mainQN.batch_size: batch_size
-        })
-        Q2 = sess.run(targetQN.Qout, feed_dict={
-            targetQN.scalarInput: trainBatch[3],
-            targetQN.batch_size: batch_size
-        })
-        end_multiplier = - (trainBatch[4] - 1)
-        doubleQ = Q2[range(batch_size), Q1]
-        targetQ = trainBatch[2] + (0.99 * doubleQ * end_multiplier)
-
-        # print(targetQ.shape)
-        _, summary = sess.run((mainQN.updateModel, summaryOps), feed_dict={
-            mainQN.scalarInput: trainBatch[0],
-            mainQN.targetQ: targetQ,
-            mainQN.actions: trainBatch[1],
-            mainQN.batch_size: batch_size
-        })
+        _, summary = mainQN.update_model(*trainBatch, additional_ops=[summaryOps])
 
         if not i % summary_freq:
             summary_writer.add_summary(summary, i)
         if not i % eval_freq:
             eval_res = np.array(
-                evaluate(sess, mainQN, env_name, is_render=render_eval))
-            perf, perf_std = sess.run(
+                evaluate(mainQN, env_name, is_render=render_eval))
+            perf, perf_std = mainQN.sess.run(
                 evalOps, feed_dict={eval_summary_ph: eval_res})
             summary_writer.add_summary(perf, i)
             summary_writer.add_summary(perf_std, i)
     # In the end
-    sess.close()
-    util.checkpoint(sess, saver, identity)
+    util.checkpoint(mainQN.sess, saver, identity)
 
 
-def evaluate(sess, mainQN, env_name, skip=4, scenario_count=5, is_render=False):
+def evaluate(mainQN, env_name, skip=4, scenario_count=5, is_render=False):
     start_time = util.time()
     env = Env(env_name=env_name, skip=skip)
     frame_buf = FrameBuf(size=mainQN.stack_size)
@@ -153,7 +127,7 @@ def evaluate(sess, mainQN, env_name, skip=4, scenario_count=5, is_render=False):
         t = 0
         R, _ = reset(mainQN.stack_size, env, frame_buf)
         for _ in range(MAX_EVAL_STEP):
-            action = mainQN.get_action(sess, list(frame_buf))
+            action = mainQN.get_action([list(frame_buf)])
             s, r, t, _ = env.step(action, epsilon=EVAL_EPSILON)
             frame_buf.append(s)
             R += r
