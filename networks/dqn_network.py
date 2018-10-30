@@ -224,10 +224,16 @@ class Qnetwork():
             self.batch_size: batch_size * 2,
             self.target_network.batch_size: batch_size
         }
-
+        # print([[f.shape for f in s] for s in S])
+        # try:
         return self.update_model(np.stack(S), A, R, np.stack(S_next), T,
             additional_ops=addtional_ops,
             additional_feeds={**lstm_feeds, **addtional_feeds})
+        # except:
+        #     print(np.array(S[0]).shape)
+        #     print(np.array(S[0][0].shape))
+        #     print([[f.shape for f in s] for s in S])
+        #     print([[f.shape for f in s] for s in S_next])
 
     def update_target_network(self):
         self.sess.run(self.target_update_ops)

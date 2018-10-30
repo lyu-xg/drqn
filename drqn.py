@@ -42,6 +42,7 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
         exp_buf = FixedTraceBuf(trace_length, buf_length=500000)
         last_iteration = 1 - pretrain_steps
         if os.path.isfile(KICKSTART_EXP_BUF_FILE):
+            print('Filling buffer with random episodes on disk.')
             exp_buf, last_iteration = util.load(KICKSTART_EXP_BUF_FILE), 1
         is_done = True
         prev_life_count = None
@@ -66,21 +67,20 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
                 summary_writer.add_summary(online_perf, i)
                 summary_writer.add_summary(online_episode_count, i)
             
-            s, r, prev_life_count = env.reset()
-            S = [s]
+            S, r, prev_life_count = env.reset()
+            S = np.reshape(S, (1, 84, 84))
             action = mainQN.get_action_stateful(S)
 
-        S = [S[-1]]
-        for _ in range(4):
-            s, r, is_done, life_count = env.step(action, epsilon=util.epsilon_at(i))
-            exp_buf.append_trans((
-                [S[-1]], action, r, [s],  # not cliping reward (huber loss)
-                (prev_life_count and life_count < prev_life_count or is_done)
-            ))
-            S.append(s)
-            prev_life_count = life_count
+        S_new, r, is_done, life_count = env.step(action, epsilon=util.epsilon_at(i))
+        S_new = np.reshape(S_new, (1, 84, 84))
+        exp_buf.append_trans((
+            S, action, r, S_new,  # not cliping reward (huber loss)
+            (prev_life_count and life_count < prev_life_count or is_done)
+        ))
+        S = S_new
+        prev_life_count = life_count
 
-        action = mainQN.get_action_stateful(S)
+        action = mainQN.get_action_stateful([S])
 
         if not i:
             start_time = time.time()
@@ -100,8 +100,9 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
         if not i % target_update_freq:
             mainQN.update_target_network()
             cur_time = time.time()
+            print(i, identity)
             print('[{}{}:{}] took {} seconds to {} steps'.format(
-                'dRqn', trace_length, i, cur_time-start_time, target_update_freq * 4), flush=1)
+                'dRqn', trace_length, i, cur_time-start_time, target_update_freq), flush=1)
             start_time = cur_time
 
         _, summary = mainQN.update_model_stateful(
@@ -113,17 +114,17 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
             summary_writer.add_summary(summary, i)
         if not i % eval_freq:
             eval_res = np.array(
-                evaluate(sess, mainQN, env_name, is_render=render_eval))
-            perf, perf_std = sess.run(
+                evaluate(mainQN, env_name, is_render=render_eval))
+            perf, perf_std = mainQN.sess.run(
                 evalOps, feed_dict={eval_summary_ph: eval_res})
             summary_writer.add_summary(perf, i)
             summary_writer.add_summary(perf_std, i)
-            print(identity)
+            # print(identity)
     # In the end
-    util.checkpoint(sess, saver, identity)
+    util.checkpoint(mainQN.sess, saver, identity)
 
 
-def evaluate(sess, mainQN, env_name, skip=4, scenario_count=3, is_render=False):
+def evaluate(mainQN, env_name, skip=4, scenario_count=3, is_render=False):
     start_time = time.time()
     env = Env(env_name=env_name, skip=skip)
 
@@ -132,7 +133,7 @@ def evaluate(sess, mainQN, env_name, skip=4, scenario_count=3, is_render=False):
         # frame_count = 0
         while not t:
             # frame_count += 4
-            action, state = mainQN.get_action_stateful([s])
+            action = mainQN.get_action_stateful([s])
             s, r, t, _ = env.step(action, epsilon=0.1)
             R += r
             if is_render:
