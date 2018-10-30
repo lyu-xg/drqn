@@ -50,43 +50,6 @@ class Qnetwork():
     ###########################################################################
     # TensorFlow Graph Layer Constructors (side effects of creating TF ops)
     ###########################################################################
-    def dueling_q(self, dense):
-        streamA, streamV = tf.split(tf.layers.flatten(dense), 2, axis=1)
-
-        xavier_init = tf.contrib.layers.xavier_initializer()
-        Advantages = tf.matmul(streamA, tf.Variable(xavier_init([self.h_size//2, self.a_size])))
-        Value      = tf.matmul(streamV, tf.Variable(xavier_init([self.h_size//2, 1])))
-
-        self.Qout = Value + \
-            (Advantages - tf.reduce_mean(Advantages, axis=1, keepdims=True))
-        self.predict = tf.argmax(self.Qout, 1)
-        self.action = self.predict[-1]
-
-    def lstm_from_conv(self, conv_res):
-        self.trace_length = tf.placeholder(tf.int32, shape=[])
-        traces = tf.reshape(flatten(self.dense_from_conv(conv_res)),
-                            (self.batch_size, self.trace_length, self.h_size))
-        traces = tf.Print(traces, [tf.shape(traces)])
-        rnn_cell = tf.contrib.cudnn_rnn.CudnnCompatibleLSTMCell(num_units=self.h_size)
-        self.lstm_state = rnn_cell.zero_state(self.batch_size, tf.float32)
-        self.rnn, self.new_state = tf.nn.dynamic_rnn(
-            inputs=traces,
-            cell=rnn_cell, dtype=tf.float32,
-            initial_state=self.lstm_state
-        )
-        self.reset_hidden_state()
-        return tf.reshape(self.rnn, (self.batch_size * self.trace_length, self.h_size))
-
-
-    def dense_from_conv(self, conv_res):
-        # using conv kernel as dense layer weight matrix rows, for faster Cudnn performance
-        return conv2d(
-            inputs=conv_res, num_outputs=self.h_size,
-            kernel_size=(7, 7), stride=(1, 1), padding='VALID',
-            data_format='NCHW',
-            biases_initializer=None
-        )
-
     def construct_convs(self):
         # input shape: (N, Channal, Height, Weight) hence 'NCHW'
         # return the end-result tensor of convolution layers
@@ -111,6 +74,45 @@ class Qnetwork():
                 data_format='NCHW',
                 biases_initializer=None
             )
+
+    def dueling_q(self, dense):
+        streamA, streamV = tf.split(dense, 2, axis=1)
+
+        xavier_init = tf.contrib.layers.xavier_initializer()
+        Advantages = tf.matmul(streamA, tf.Variable(xavier_init([self.h_size//2, self.a_size])))
+        Value      = tf.matmul(streamV, tf.Variable(xavier_init([self.h_size//2, 1])))
+
+        self.Qout = Value + \
+            (Advantages - tf.reduce_mean(Advantages, axis=1, keepdims=True))
+        self.predict = tf.argmax(self.Qout, 1)
+        self.action = self.predict[-1]
+
+    def lstm_from_conv(self, conv_res):
+        self.trace_length = tf.placeholder(tf.int32, shape=[])
+        traces = tf.reshape(flatten(conv_res),
+                            (self.batch_size, self.trace_length, 64 * 7 * 7))
+        self.rnn_cell = tf.contrib.cudnn_rnn.CudnnCompatibleLSTMCell(num_units=self.h_size)
+        self.lstm_state = self.rnn_cell.zero_state(self.batch_size, tf.float32)
+        self.rnn, self.new_state = tf.nn.dynamic_rnn(
+            self.rnn_cell,
+            traces,
+            dtype=tf.float32,
+            initial_state=self.lstm_state
+        )
+        self.reset_hidden_state()
+        return tf.reshape(
+            tf.nn.dropout(self.rnn, 0.75),
+            (self.batch_size * self.trace_length, self.h_size))
+
+
+    def dense_from_conv(self, conv_res):
+        # using conv kernel as dense layer weight matrix rows, for faster Cudnn performance
+        return flatten(conv2d(
+            inputs=conv_res, num_outputs=self.h_size,
+            kernel_size=(7, 7), stride=(1, 1), padding='VALID',
+            data_format='NCHW',
+            biases_initializer=None
+        ))
 
     def construct_training_inputs(self):
         self.transition_rewards = tf.placeholder(tf.float32, shape=[None])
@@ -217,8 +219,6 @@ class Qnetwork():
         # S.shape: (batch_size, 10, 84, 84)
         batch_size, trace_length = len(S)//10, 10
         lstm_feeds = {
-            self.lstm_state: self.ZERO_STATE,
-            self.target_network.lstm_state: self.ZERO_STATE,
             self.trace_length: trace_length,
             self.target_network.trace_length: trace_length,
             self.batch_size: batch_size * 2,

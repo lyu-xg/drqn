@@ -5,6 +5,7 @@ log/*
 ckpts/*
 *backup/*
 test.py
+*random_policy*.p
 
 # Byte-compiled / optimized / DLL files
 __pycache__/

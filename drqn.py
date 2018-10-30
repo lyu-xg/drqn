@@ -104,13 +104,9 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
                 'dRqn', trace_length, i, cur_time-start_time, target_update_freq * 4), flush=1)
             start_time = cur_time
 
-        for _ in range(4):
-            batch = np.transpose(exp_buf.sample_traces(batch_size))
-            for i in range(5):
-                print(batch[i].dtype)
-            _, summary = mainQN.update_model_stateful(
-                *batch,
-                addtional_ops=[summaryOps])
+        _, summary = mainQN.update_model_stateful(
+            *np.transpose(exp_buf.sample_traces(batch_size)),
+            addtional_ops=[summaryOps])
                                      
         
         if not i % summary_freq:
