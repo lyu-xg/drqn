@@ -134,8 +134,9 @@ class FixedTraceBuf():
         return sum(t[2] for t in self.scenario_cache)
 
     def sample_traces(self, batch_size):
-        return np.reshape(self.buf.sample_batch(batch_size),
-                          (batch_size * self.trace_length, -1))
+        return np.reshape(
+            self.buf.sample_batch(batch_size), 
+            (batch_size * self.trace_length, -1))
     
 
 class FixedActionTraceBuf(FixedTraceBuf):

@@ -1,4 +1,5 @@
 import signal
+import os
 import argparse
 import numpy as np
 import tensorflow as tf
@@ -28,6 +29,7 @@ def train(stack_length, render_eval=False, h_size=512, target_update_freq=10000,
           ckpt_freq=500000, summary_freq=1000, eval_freq=10000,
           batch_size=32, env_name='Pong', total_iteration=5e7,
           pretrain_steps=50000):
+    KICKSTART_EXP_BUF_FILE = 'stack_buf_random_policy_{}.p'.format(pretrain_steps)
     identity = 'stack={},env={},mod={}'.format(stack_length, env_name, 'dqn')
 
     env = Env(env_name=env_name, skip=4)
@@ -45,9 +47,11 @@ def train(stack_length, render_eval=False, h_size=512, target_update_freq=10000,
          prev_life_count, action, frame_buf) = util.load_checkpoint(mainQN.sess, saver, identity)
         start_time = util.time()
     else:
-        exp_buf = StackBuf(size=util.MILLION)
         frame_buf = FrameBuf(size=stack_length)
-        last_iteration = 1 - pretrain_steps
+        exp_buf, last_iteration = (
+            (StackBuf(size=util.MILLION), 1 - pretrain_steps)
+            if not os.path.isfile(KICKSTART_EXP_BUF_FILE)
+            else (util.load(KICKSTART_EXP_BUF_FILE), 1))
         is_done = True
         prev_life_count = None
         mainQN.update_target_network()
@@ -72,7 +76,7 @@ def train(stack_length, render_eval=False, h_size=512, target_update_freq=10000,
                 summary_writer.add_summary(online_episode_count, i)
 
             _, prev_life_count = reset(stack_length, env, frame_buf)
-            action = mainQN.get_action([list(frame_buf)])
+            action = mainQN.get_action(list(frame_buf))
 
         s, r, is_done, life_count = env.step(action, epsilon=util.epsilon_at(i))
         exp_buf.append_trans((
@@ -80,10 +84,11 @@ def train(stack_length, render_eval=False, h_size=512, target_update_freq=10000,
             (prev_life_count and life_count < prev_life_count or is_done)
         ))
         prev_life_count = life_count
-        action = mainQN.get_action([list(frame_buf)])
+        action = mainQN.get_action(list(frame_buf))
 
         if not i:
             start_time = util.time()
+            util.pickle.dump(exp_buf, open(KICKSTART_EXP_BUF_FILE, 'wb'))
             
         if i <= 0: continue
 
@@ -127,7 +132,7 @@ def evaluate(mainQN, env_name, skip=4, scenario_count=5, is_render=False):
         t = 0
         R, _ = reset(mainQN.stack_size, env, frame_buf)
         for _ in range(MAX_EVAL_STEP):
-            action = mainQN.get_action([list(frame_buf)])
+            action = mainQN.get_action(list(frame_buf))
             s, r, t, _ = env.step(action, epsilon=EVAL_EPSILON)
             frame_buf.append(s)
             R += r
@@ -138,6 +143,7 @@ def evaluate(mainQN, env_name, skip=4, scenario_count=5, is_render=False):
 
     res = np.array([total_scenario_reward() for _ in range(scenario_count)])
     print(util.time() - start_time, 'seconds to evaluate', flush=1)
+    print('Eval:', res, 'mean =', np.mean(res))
     return np.mean(res), np.std(res)
 
 
@@ -145,8 +151,7 @@ def main():
     signal.signal(signal.SIGINT, util.signal_handler)
     parser = argparse.ArgumentParser()
     parser.add_argument('-t', '--stack_length', action='store', type=int, default=4)
-    parser.add_argument('-e', '--env_name', action='store',
-                        default='SpaceInvadersNoFrameskip-v4')
+    parser.add_argument('-e', '--env_name', action='store', default='Pong')
     train(**vars(parser.parse_args()))
 
 

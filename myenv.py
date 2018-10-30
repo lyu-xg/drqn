@@ -2,7 +2,9 @@ import cv2
 import gym
 import numpy as np
 
-ZERO_FRAME = np.zeros((7056,), dtype=np.int8)
+FRAME_SHAPE = (84, 84)
+
+ZERO_FRAME = np.zeros(FRAME_SHAPE, dtype=np.uint8)
 
 def to_grayscale(frame):
     return np.mean(frame, axis=2).astype(np.uint8)
@@ -36,7 +38,7 @@ class Env:
         if self.flicker_prob and np.random.random() < self.flicker_prob:
             return ZERO_FRAME
         # return downsample(to_grayscale(s[8:-12]), (84, 84)).reshape((7056,))
-        return downsample(to_grayscale(s), (84, 84)).reshape((7056,))
+        return downsample(to_grayscale(s), FRAME_SHAPE)
 
     def rand_action(self):
         return self.env.action_space.sample()

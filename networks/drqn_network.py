@@ -54,8 +54,6 @@ class Qnetwork():
         self.A = tf.matmul(self.streamA, self.AW)
         self.V = tf.matmul(self.streamV, self.VW)
 
-        self.salience = tf.gradients(self.A, self.scalarInput)
-
         self.Qout = self.V + \
             (self.A - tf.reduce_mean(self.A, axis=1, keepdims=True))
         self.predict = tf.argmax(self.Qout, 1)

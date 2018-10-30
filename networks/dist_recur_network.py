@@ -170,7 +170,7 @@ class Qnetwork():
                           tf.ones((self.batch_size, self.trainLength//2, self.num_quant, self.num_quant))), 1)
         mask = tf.reshape(mask, [-1, self.num_quant, self.num_quant])
 
-        loss = tf.reduce_sum(residual * residual_counterweights / self.num_quant * mask)
+        loss = tf.reduce_mean(residual * residual_counterweights * mask)
         
         return loss
 if __name__ == '__main__':
