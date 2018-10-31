@@ -4,17 +4,17 @@ from tensorflow.contrib.slim import convolution2d as conv2d
 from tensorflow.contrib.slim import flatten
 
 class Qnetwork():
-    def __init__(self, h_size, a_size, stack_size, scopeName, model='dqn', model_kwargs={}):
+    def __init__(self, h_size, a_size, stack_size, scopeName, model='dqn', model_kwargs={}, **kwargs):
         self.h_size, self.a_size, self.stack_size, self.model= \
             h_size, a_size, stack_size, model
 
         # self.adrqn = self.model.endswith('adrqn')
+        self.num_quant = kwargs.get('num_quant', 1)
 
         # expected inputs        
         self.frames = tf.placeholder(shape=[None, stack_size, 84, 84], dtype=tf.uint8)
         self.batch_size = tf.placeholder(dtype=tf.int32, shape=[])
 
-        self.ZERO_STATE = (np.zeros((1, self.h_size)),) * 2
         with tf.variable_scope(scopeName):
             try:
                 eval('self.construct_{}(**model_kwargs)'.format(model))
@@ -87,11 +87,18 @@ class Qnetwork():
         streamA, streamV = tf.split(dense, 2, axis=1)
 
         xavier_init = tf.contrib.layers.xavier_initializer()
-        Advantages = tf.matmul(streamA, tf.Variable(xavier_init([self.h_size//2, self.a_size])))
-        Value      = tf.matmul(streamV, tf.Variable(xavier_init([self.h_size//2, 1])))
+        # A = tf.matmul(streamA, tf.Variable(xavier_init([self.h_size//2, self.a_size * self.num_quant])))
+        # V = tf.matmul(streamV, tf.Variable(xavier_init([self.h_size//2, self.num_quant])))
 
-        self.Qout = Value + \
-            (Advantages - tf.reduce_mean(Advantages, axis=1, keepdims=True))
+        A = tf.matmul(streamA, tf.Variable(xavier_init([self.h_size//2, self.a_size])))
+        V = tf.matmul(streamV, tf.Variable(xavier_init([self.h_size//2, 1])))
+
+        # A = tf.reshape(A, (-1, self.a_size, self.num_quant))
+        # A -= tf.reduce_mean(A, axis=1, keep_dims=True)
+        # self.Qout = A + tf.reshape(V, (-1, 1, self.num_quant))
+
+        self.Qout = V + (A - tf.reduce_mean(A, axis=1, keepdims=True))
+        # self.predict = tf.argmax(tf.reduce_mean(self.Qout, axis=2), 1)
         self.predict = tf.argmax(self.Qout, 1)
         self.action = self.predict[-1]
 
@@ -140,6 +147,7 @@ class Qnetwork():
         return actions
 
     def construct_Q_and_doubleTargetQ(self):
+        # TODO support distributional
         # in order to do a single pass, we set the first part of the batch
         # to be S, and the second half of the batch to be S_next
         Q_s, Q_s_next = tf.split(self.Qout, 2)
@@ -153,7 +161,7 @@ class Qnetwork():
                   0.99 * targetQ * (- self.transition_terminals + 1))
         return Q, tf.stop_gradient(target)
 
-    def construct_target_and_loss(self, lstm=False, dist=False):
+    def construct_target_and_loss(self, lstm=False):
         # where target and loss are computed
         self.construct_training_inputs()
         Q, targetQ = self.construct_Q_and_doubleTargetQ()
@@ -190,7 +198,7 @@ class Qnetwork():
         return tf.one_hot(actions, self.a_size, on_value=1.0, off_value=0.0, dtype=tf.float32)
 
     def select_actions(self, Q_values, actions):
-        # Q_values: (batch_size, a_size)
+        # Q_values: (batch_size, a_size, num_quant)
         # actions: (batch_size,)
         return tf.reduce_sum(Q_values * self.one_hot(actions), axis=1)
 
@@ -203,6 +211,14 @@ class Qnetwork():
     @property
     def adrqn(self):
         return self.model.endswith('adrqn')
+    
+    @property
+    def distributional(self):
+        return self.model.startswith('dist')
+
+    @property
+    def ZERO_STATE(self):
+        return (np.zeros((1, self.h_size)),) * 2
     ###########################################################################
     # Exposed Methods (used when training agents)
     ###########################################################################
@@ -213,18 +229,22 @@ class Qnetwork():
             self.batch_size: len(frames)
         })
 
-    def get_action_stateful(self, frames, prev_a=0):
+    def get_action_stateful(self, frames, prev_a=0, state=None):
         feed = {
             self.frames: np.reshape(frames, (len(frames), 1, 84, 84)),
             self.batch_size: 1,
             self.trace_length: len(frames),
-            self.lstm_state: self.hidden_state
+            self.lstm_state: state or self.hidden_state
         }
         if self.adrqn:
             feed[self.prev_actions_input] = [prev_a]
-        action, self.hidden_state = self.sess.run([self.action, self.new_state],
+        action, new_state = self.sess.run([self.action, self.new_state],
                                                   feed_dict=feed)
-        return action
+        if not state:
+            self.hidden_state = new_state
+        else:
+            state = new_state
+        return action, state
 
     def reset_hidden_state(self):
         self.hidden_state = self.ZERO_STATE

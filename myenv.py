@@ -15,7 +15,7 @@ def downsample(frame, shape):
     return cv2.resize(frame, tuple(reversed(shape)))
 
 class Env:
-    def __init__(self, env_name='SpaceInvaders', skip=4, noop=30):
+    def __init__(self, env_name='SpaceInvaders', skip=4, noop=30, flicker=0, force=0):
         if '-' not in env_name:
             env_name += 'NoFrameskip-v4'
         # prefix parameters format: [<param>@<value>:]*
@@ -24,9 +24,9 @@ class Env:
         options, gymEnvName = dict(prefix.split('@') for prefix in lst[:-1]), lst[-1]
 
         # setup flickering class var
-        self.flicker_prob = float(options.get('flicker', 0))
-        if self.flicker_prob:
-            print('enabling flickering at prob=', self.flicker_prob, flush=1, sep='')
+        self.flicker_prob = flicker if force else float(options.get('flicker', 0))
+        # if self.flicker_prob:
+            # print('enabling flickering at prob=', self.flicker_prob, flush=1, sep='')
 
         self.env = gym.make(gymEnvName)
         assert (skip >= 2)

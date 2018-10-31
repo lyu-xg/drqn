@@ -18,6 +18,8 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
     # network = dist_Qnetwork if num_quant else Qnetwork
     # env_name += 'NoFrameskip-v4'
     model = 'drqn' if not use_actions else 'adrqn'
+    if num_quant:
+        model = 'dist-' + model
     KICKSTART_EXP_BUF_FILE = 'trace_buf_random_policy_50000.p'
     if use_actions:
         KICKSTART_EXP_BUF_FILE = 'action_' + KICKSTART_EXP_BUF_FILE
@@ -58,9 +60,11 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
 
     summaryOps = tf.summary.merge_all()
 
-    eval_summary_ph = tf.placeholder(tf.float32, shape=(2,), name='evaluation')
+    eval_summary_ph = tf.placeholder(tf.float32, shape=(4,), name='evaluation')
     evalOps = (tf.summary.scalar('performance', eval_summary_ph[0]),
-               tf.summary.scalar('perform_std', eval_summary_ph[1]))
+               tf.summary.scalar('perform_std', eval_summary_ph[1]),
+               tf.summary.scalar('flicker_performance', eval_summary_ph[2]),
+               tf.summary.scalar('flicker_perform_std', eval_summary_ph[3]))
     online_summary_ph = tf.placeholder(tf.float32, shape=(2,), name='online')
     onlineOps = (tf.summary.scalar('online_performance', online_summary_ph[0]),
                  tf.summary.scalar('online_scenario_length', online_summary_ph[1]))
@@ -77,8 +81,9 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
             
             S, r, prev_life_count = env.reset()
             S = np.reshape(S, (1, 84, 84))
-            action = mainQN.get_action_stateful(S, prev_a=0)
-
+            mainQN.reset_hidden_state()
+            
+        action, _ = mainQN.get_action_stateful(S, prev_a=0)
         S_new, r, is_done, life_count = env.step(action, epsilon=util.epsilon_at(i))
         S_new = np.reshape(S_new, (1, 84, 84))
         exp_buf.append_trans((
@@ -87,7 +92,6 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
         ))
         S = S_new
         prev_life_count = life_count
-        action = mainQN.get_action_stateful([S], prev_a=action)
 
         if not i:
             start_time = time.time()
@@ -123,27 +127,24 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
 
         # Evaluate
         if not i % eval_freq:
-            eval_res = np.array(
-                evaluate(mainQN, env_name, is_render=render_eval))
-            perf, perf_std = mainQN.sess.run(
+            eval_res = np.array(evaluate(mainQN, env_name, is_render=render_eval))
+            eval_vals = mainQN.sess.run(
                 evalOps, feed_dict={eval_summary_ph: eval_res})
-            summary_writer.add_summary(perf, i)
-            summary_writer.add_summary(perf_std, i)
-            # print(identity)
-    # In the end
+            for v in eval_vals:
+                summary_writer.add_summary(v, i)
+
     util.checkpoint(mainQN.sess, saver, identity)
 
 
-def evaluate(mainQN, env_name, skip=4, scenario_count=3, is_render=False):
+def evaluate(mainQN, env_name, skip=4, scenario_count=5, is_render=False):
     start_time = time.time()
-    env = Env(env_name=env_name, skip=skip)
-
-    def total_scenario_reward():
-        (s, R, _), t, action = env.reset(), False, 0
+    def total_scenario_reward(flicker=0):
+        env = Env(env_name=env_name, skip=skip, flicker=flicker, force=True)
+        (s, R, _), t, action, state = env.reset(), False, 0, mainQN.ZERO_STATE
         # frame_count = 0
         while not t:
             # frame_count += 4
-            action = mainQN.get_action_stateful([s], prev_a=action)
+            action, state = mainQN.get_action_stateful([s], prev_a=action, state=state)
             s, r, t, _ = env.step(action, epsilon=0.1)
             R += r
             if is_render:
@@ -153,9 +154,12 @@ def evaluate(mainQN, env_name, skip=4, scenario_count=3, is_render=False):
         return R
 
     res = np.array([total_scenario_reward() for _ in range(scenario_count)])
+    res_flicker = np.array([total_scenario_reward(flicker=.5) for _ in range(scenario_count)])
+
     print(time.time() - start_time, 'seconds to evaluate', flush=1)
-    print('Eval mean', np.mean(res))
-    return np.mean(res), np.std(res)
+    print(res, res_flicker)
+    print('Eval mean', np.mean(res), np.mean(res_flicker))
+    return np.mean(res), np.std(res), np.mean(res_flicker), np.std(res_flicker)
 
 
 def main():
