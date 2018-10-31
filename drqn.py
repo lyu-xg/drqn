@@ -6,30 +6,38 @@ import numpy as np
 import tensorflow as tf
 
 import common as util
-from buffer import FixedTraceBuf
+from buffer import FixedTraceBuf, FixedActionTraceBuf
 from myenv import Env
 from networks.dqn_network import Qnetwork
-# from networks.dist_recur_network import Qnetwork as dist_Qnetwork
 
-KICKSTART_EXP_BUF_FILE = 'trace_buf_random_policy_50000.p'
 
 def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
           ckpt_freq=500000, summary_freq=1000, eval_freq=10000,
-          batch_size=8, env_name='Pong', total_iteration=5e7,
+          batch_size=32, env_name='Pong', total_iteration=5e7, use_actions=0,
           pretrain_steps=50000, num_quant=0):
     # network = dist_Qnetwork if num_quant else Qnetwork
     # env_name += 'NoFrameskip-v4'
+    model = 'drqn' if not use_actions else 'adrqn'
+    KICKSTART_EXP_BUF_FILE = 'trace_buf_random_policy_50000.p'
+    if use_actions:
+        KICKSTART_EXP_BUF_FILE = 'action_' + KICKSTART_EXP_BUF_FILE
+
+    model_args = {}
     identity = 'stack={},env={},mod={},h_size={}'.format(
-        trace_length, env_name, 'drqn', h_size)
+        trace_length, env_name, model, h_size)
     if num_quant:
         identity += ',quantile={}'.format(num_quant)
+    if use_actions:
+        identity += ',action_dim={}'.format(use_actions)
+        FixedTraceBuf = FixedActionTraceBuf
+        model_args['action_hidden_size'] = use_actions
     print(identity)
 
     train_len = trace_length * batch_size
 
     env = Env(env_name=env_name, skip=4)
     
-    mainQN = Qnetwork(h_size, env.n_actions, 1, 'main', model='drqn')
+    mainQN = Qnetwork(h_size, env.n_actions, 1, 'main', model=model, model_kwargs=model_args)
     saver = tf.train.Saver(max_to_keep=5)
 
     summary_writer = tf.summary.FileWriter('./log/' + identity, mainQN.sess.graph)
@@ -69,7 +77,7 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
             
             S, r, prev_life_count = env.reset()
             S = np.reshape(S, (1, 84, 84))
-            action = mainQN.get_action_stateful(S)
+            action = mainQN.get_action_stateful(S, prev_a=0)
 
         S_new, r, is_done, life_count = env.step(action, epsilon=util.epsilon_at(i))
         S_new = np.reshape(S_new, (1, 84, 84))
@@ -79,8 +87,7 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
         ))
         S = S_new
         prev_life_count = life_count
-
-        action = mainQN.get_action_stateful([S])
+        action = mainQN.get_action_stateful([S], prev_a=action)
 
         if not i:
             start_time = time.time()
@@ -94,24 +101,27 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
             if util.Exiting:
                 raise SystemExit
 
-        if i < 0:
-            continue
+        if i < 0: continue
 
+        # TRAIN
+        _, summary = mainQN.update_model_stateful(
+            *exp_buf.sample_traces(batch_size),
+            addtional_ops=[summaryOps])
+                                     
+        # Summary
+        if not i % summary_freq:
+            summary_writer.add_summary(summary, i)
+
+        # Target Update
         if not i % target_update_freq:
             mainQN.update_target_network()
             cur_time = time.time()
             print(i, identity)
             print('[{}{}:{}] took {} seconds to {} steps'.format(
-                'dRqn', trace_length, i, cur_time-start_time, target_update_freq), flush=1)
+                model, trace_length, i, cur_time-start_time, target_update_freq), flush=1)
             start_time = cur_time
 
-        _, summary = mainQN.update_model_stateful(
-            *np.transpose(exp_buf.sample_traces(batch_size)),
-            addtional_ops=[summaryOps])
-                                     
-        
-        if not i % summary_freq:
-            summary_writer.add_summary(summary, i)
+        # Evaluate
         if not i % eval_freq:
             eval_res = np.array(
                 evaluate(mainQN, env_name, is_render=render_eval))
@@ -129,11 +139,11 @@ def evaluate(mainQN, env_name, skip=4, scenario_count=3, is_render=False):
     env = Env(env_name=env_name, skip=skip)
 
     def total_scenario_reward():
-        (s, R, _), t, state = env.reset(), False, None
+        (s, R, _), t, action = env.reset(), False, 0
         # frame_count = 0
         while not t:
             # frame_count += 4
-            action = mainQN.get_action_stateful([s])
+            action = mainQN.get_action_stateful([s], prev_a=action)
             s, r, t, _ = env.step(action, epsilon=0.1)
             R += r
             if is_render:
@@ -155,6 +165,7 @@ def main():
     parser.add_argument('-d', '--h_size', action='store', type=int, default=512)
     parser.add_argument('-e', '--env_name', action='store', default='Pong')
     parser.add_argument('-q', '--num_quant', action='store', type=int, default=0)
+    parser.add_argument('-a', '--use_actions', action='store', type=int, default=0)
     train(**vars(parser.parse_args()))
 
 

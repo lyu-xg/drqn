@@ -4,26 +4,27 @@ from tensorflow.contrib.slim import convolution2d as conv2d
 from tensorflow.contrib.slim import flatten
 
 class Qnetwork():
-    def __init__(self, h_size, a_size, stack_size, scopeName, model='dqn'):
-        self.h_size, self.a_size, self.stack_size = \
-            h_size, a_size, stack_size
+    def __init__(self, h_size, a_size, stack_size, scopeName, model='dqn', model_kwargs={}):
+        self.h_size, self.a_size, self.stack_size, self.model= \
+            h_size, a_size, stack_size, model
+
+        # self.adrqn = self.model.endswith('adrqn')
 
         # expected inputs        
         self.frames = tf.placeholder(shape=[None, stack_size, 84, 84], dtype=tf.uint8)
         self.batch_size = tf.placeholder(dtype=tf.int32, shape=[])
 
         self.ZERO_STATE = (np.zeros((1, self.h_size)),) * 2
-
         with tf.variable_scope(scopeName):
             try:
-                eval('self.construct_{}()'.format(model))
+                eval('self.construct_{}(**model_kwargs)'.format(model))
             except AttributeError:
                 print('model {} not implemented.'.format(model))
                 raise SystemExit
 
         if scopeName == 'main':
             self.target_network = Qnetwork(h_size, a_size, stack_size, 'target',
-                                           model=model)
+                                           model=model, model_kwargs=model_kwargs)
             self.construct_target_and_loss()
             self.construct_target_update_ops()
 
@@ -44,6 +45,13 @@ class Qnetwork():
         self.dueling_q(dense)
 
     def construct_drqn(self):
+        lstm = self.lstm_from_conv(self.construct_convs())
+        self.dueling_q(lstm)
+
+    def construct_adrqn(self, action_hidden_size=0):
+        self.action_h_size = max(action_hidden_size, self.a_size)
+        assert not action_hidden_size % 2 # has to be even in order to split for dueling
+
         lstm = self.lstm_from_conv(self.construct_convs())
         self.dueling_q(lstm)
 
@@ -89,8 +97,14 @@ class Qnetwork():
 
     def lstm_from_conv(self, conv_res):
         self.trace_length = tf.placeholder(tf.int32, shape=[])
-        traces = tf.reshape(flatten(conv_res),
-                            (self.batch_size, self.trace_length, 64 * 7 * 7))
+        conv_res = flatten(conv_res)
+        conv_res_len = 64 * 7 * 7
+        if self.adrqn:
+            prev_actions = self.construct_action_projection()
+            conv_res = tf.concat([conv_res, prev_actions], 1)
+            conv_res_len += self.action_h_size
+        traces = tf.reshape(conv_res,
+                            (self.batch_size, self.trace_length, conv_res_len))
         self.rnn_cell = tf.contrib.cudnn_rnn.CudnnCompatibleLSTMCell(num_units=self.h_size)
         self.lstm_state = self.rnn_cell.zero_state(self.batch_size, tf.float32)
         self.rnn, self.new_state = tf.nn.dynamic_rnn(
@@ -119,6 +133,12 @@ class Qnetwork():
         self.transition_terminals = tf.placeholder(tf.float32, shape=[None])
         self.transition_actions = tf.placeholder(tf.int32, shape=[None])
 
+    def construct_action_projection(self):
+        self.prev_actions_input = tf.placeholder(tf.int32, shape=[None])
+        actions = tf.one_hot(self.prev_actions_input, self.a_size)
+        actions = tf.layers.dense(actions, self.action_h_size, activation='relu')
+        return actions
+
     def construct_Q_and_doubleTargetQ(self):
         # in order to do a single pass, we set the first part of the batch
         # to be S, and the second half of the batch to be S_next
@@ -133,7 +153,7 @@ class Qnetwork():
                   0.99 * targetQ * (- self.transition_terminals + 1))
         return Q, tf.stop_gradient(target)
 
-    def construct_target_and_loss(self, lstm=False):
+    def construct_target_and_loss(self, lstm=False, dist=False):
         # where target and loss are computed
         self.construct_training_inputs()
         Q, targetQ = self.construct_Q_and_doubleTargetQ()
@@ -179,6 +199,10 @@ class Qnetwork():
         traces = tf.reshape(batch, (self.batch_size, self.trace_length))
         _, traces = tf.split(traces, 2, axis=1)
         return traces
+
+    @property
+    def adrqn(self):
+        return self.model.endswith('adrqn')
     ###########################################################################
     # Exposed Methods (used when training agents)
     ###########################################################################
@@ -189,20 +213,23 @@ class Qnetwork():
             self.batch_size: len(frames)
         })
 
-    def get_action_stateful(self, frames):
-        action, self.hidden_state = self.sess.run([self.action, self.new_state], feed_dict={
+    def get_action_stateful(self, frames, prev_a=0):
+        feed = {
             self.frames: np.reshape(frames, (len(frames), 1, 84, 84)),
             self.batch_size: 1,
             self.trace_length: len(frames),
             self.lstm_state: self.hidden_state
-        })
+        }
+        if self.adrqn:
+            feed[self.prev_actions_input] = [prev_a]
+        action, self.hidden_state = self.sess.run([self.action, self.new_state],
+                                                  feed_dict=feed)
         return action
 
     def reset_hidden_state(self):
         self.hidden_state = self.ZERO_STATE
 
     def update_model(self, S, A, R, S_next, T, additional_ops=[], additional_feeds={}):
-        # print(S[0])
         return self.sess.run([self.updateModel] + additional_ops, feed_dict={
             self.target_network.frames: S_next,
             self.target_network.batch_size: len(S),
@@ -215,7 +242,7 @@ class Qnetwork():
             **additional_feeds
         })
 
-    def update_model_stateful(self, S, A, R, S_next, T, addtional_ops=[], addtional_feeds={}):
+    def update_model_stateful(self, S, A, R, S_next, T, *args, addtional_ops=[], addtional_feeds={}):
         # S.shape: (batch_size, 10, 84, 84)
         batch_size, trace_length = len(S)//10, 10
         lstm_feeds = {
@@ -224,16 +251,17 @@ class Qnetwork():
             self.batch_size: batch_size * 2,
             self.target_network.batch_size: batch_size
         }
-        # print([[f.shape for f in s] for s in S])
-        # try:
+        if args and self.adrqn:
+            A_prev, = args
+            lstm_feeds[self.prev_actions_input] = A_prev
+            lstm_feeds.update({
+                self.prev_actions_input: np.concatenate([A_prev, A]),
+                self.target_network.prev_actions_input: A
+            })
+        
         return self.update_model(np.stack(S), A, R, np.stack(S_next), T,
             additional_ops=addtional_ops,
             additional_feeds={**lstm_feeds, **addtional_feeds})
-        # except:
-        #     print(np.array(S[0]).shape)
-        #     print(np.array(S[0][0].shape))
-        #     print([[f.shape for f in s] for s in S])
-        #     print([[f.shape for f in s] for s in S_next])
 
     def update_target_network(self):
         self.sess.run(self.target_update_ops)

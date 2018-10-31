@@ -134,9 +134,9 @@ class FixedTraceBuf():
         return sum(t[2] for t in self.scenario_cache)
 
     def sample_traces(self, batch_size):
-        return np.reshape(
+        return np.transpose(np.reshape(
             self.buf.sample_batch(batch_size), 
-            (batch_size * self.trace_length, -1))
+            (batch_size * self.trace_length, -1)))
     
 
 class FixedActionTraceBuf(FixedTraceBuf):
@@ -145,11 +145,11 @@ class FixedActionTraceBuf(FixedTraceBuf):
     
     def sample_traces(self, batch_size):
         trace_len = self.trace_length - 1
-        traces = self.buf.sample_batch(batch_size) # shape: (batch_size, trace_len+1, trans_len)
-        prev_actions = traces[:, :trace_len, 2:3] # shape: (batch_size, trace_len, 1)
+        traces = np.array(self.buf.sample_batch(batch_size)) # shape: (batch_size, trace_len+1, trans_len)
+        prev_actions = traces[:, :trace_len, 1:2] # shape: (batch_size, trace_len, 1)
         combined = np.concatenate([traces[:, :trace_len, :], prev_actions], axis=2)
-        return np.reshape(combined, (batch_size * trace_len, -1)) 
-
+        res =  np.transpose(np.reshape(combined, (batch_size * trace_len, -1)))
+        return res
         
 
 class ActionTraceBuf(TraceBuf):
