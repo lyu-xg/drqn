@@ -7,7 +7,7 @@ import tensorflow as tf
 import common as util
 from buffer import StackBuf, FrameBuf
 from myenv import Env
-from networks.dqn_network import Qnetwork
+from dqn_network import Qnetwork
 
 
 EVAL_EPSILON = 0.05
