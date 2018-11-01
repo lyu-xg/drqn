@@ -8,7 +8,7 @@ import tensorflow as tf
 import common as util
 from buffer import FixedTraceBuf, FixedActionTraceBuf
 from myenv import Env
-from networks.dqn_network import Qnetwork
+from dqn_network import Qnetwork
 
 
 def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
@@ -20,7 +20,7 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
     model = 'drqn' if not use_actions else 'adrqn'
     if num_quant:
         model = 'dist-' + model
-    KICKSTART_EXP_BUF_FILE = 'trace_buf_random_policy_50000.p'
+    KICKSTART_EXP_BUF_FILE = 'cache/{}trace_buf_random_policy_{}.p'.format('action_' if use_actions else '', pretrain_steps)
 
     model_args = {}
     identity = 'stack={},env={},mod={},h_size={}'.format(
@@ -31,7 +31,6 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
         identity += ',action_dim={}'.format(use_actions)
         FixedTraceBuf = FixedActionTraceBuf
         model_args['action_hidden_size'] = use_actions
-        KICKSTART_EXP_BUF_FILE = 'action_' + KICKSTART_EXP_BUF_FILE
     print(identity)
 
     train_len = trace_length * batch_size
@@ -94,7 +93,7 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
 
         if not i:
             start_time = time.time()
-            util.pickle.dump(exp_buf, open(KICKSTART_EXP_BUF_FILE, 'wb'))
+            util.save(exp_buf, KICKSTART_EXP_BUF_FILE)
 
 
         if util.Exiting or not i % ckpt_freq:

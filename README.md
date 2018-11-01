@@ -1,3 +1,3 @@
 # drqn
 
-effort on testing and maybe improve upon DRQN
+effort on running and analyzing distributional DRQN, supports ADRQN

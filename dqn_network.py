@@ -257,7 +257,7 @@ class Qnetwork():
         return tf.reduce_sum(self.discard_first_half_trace(losses))
 
     @property
-    def ZERO_STATE():
+    def ZERO_STATE(self):
         return (np.zeros((1, self.h_size)),) * 2
 
     @property
