@@ -21,8 +21,6 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
     if num_quant:
         model = 'dist-' + model
     KICKSTART_EXP_BUF_FILE = 'trace_buf_random_policy_50000.p'
-    if use_actions:
-        KICKSTART_EXP_BUF_FILE = 'action_' + KICKSTART_EXP_BUF_FILE
 
     model_args = {}
     identity = 'stack={},env={},mod={},h_size={}'.format(
@@ -33,6 +31,7 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
         identity += ',action_dim={}'.format(use_actions)
         FixedTraceBuf = FixedActionTraceBuf
         model_args['action_hidden_size'] = use_actions
+        KICKSTART_EXP_BUF_FILE = 'action_' + KICKSTART_EXP_BUF_FILE
     print(identity)
 
     train_len = trace_length * batch_size
