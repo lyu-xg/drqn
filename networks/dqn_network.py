@@ -3,6 +3,9 @@ import tensorflow as tf
 from tensorflow.contrib.slim import convolution2d as conv2d
 from tensorflow.contrib.slim import flatten
 
+def tfprint(op, msg):
+    return tf.Print(op, [tf.shape(op)], message=msg)
+
 class Qnetwork():
     def __init__(self, h_size, a_size, stack_size, scopeName, model='dqn', model_kwargs={}, **kwargs):
         self.h_size, self.a_size, self.stack_size, self.model= \
@@ -10,6 +13,7 @@ class Qnetwork():
 
         # self.adrqn = self.model.endswith('adrqn')
         self.num_quant = kwargs.get('num_quant', 1)
+        self.autoencode = kwargs.get('autoencode', False)
 
         # expected inputs        
         self.frames = tf.placeholder(shape=[None, stack_size, 84, 84], dtype=tf.uint8)
@@ -87,19 +91,18 @@ class Qnetwork():
         streamA, streamV = tf.split(dense, 2, axis=1)
 
         xavier_init = tf.contrib.layers.xavier_initializer()
-        # A = tf.matmul(streamA, tf.Variable(xavier_init([self.h_size//2, self.a_size * self.num_quant])))
-        # V = tf.matmul(streamV, tf.Variable(xavier_init([self.h_size//2, self.num_quant])))
+        A = tf.matmul(streamA, tf.Variable(xavier_init([self.h_size//2, self.a_size * self.num_quant])))
+        V = tf.matmul(streamV, tf.Variable(xavier_init([self.h_size//2, self.num_quant])))
 
-        A = tf.matmul(streamA, tf.Variable(xavier_init([self.h_size//2, self.a_size])))
-        V = tf.matmul(streamV, tf.Variable(xavier_init([self.h_size//2, 1])))
+        if not self.distributional:
+            self.Qout = V + (A - tf.reduce_mean(A, axis=1, keepdims=True))
+            self.predict = tf.argmax(self.Qout, 1)
+        else:
+            A = tf.reshape(A, (-1, self.a_size, self.num_quant))
+            A -= tf.reduce_mean(A, axis=1, keep_dims=True)
+            self.Qout = A + tf.reshape(V, (-1, 1, self.num_quant))
+            self.predict = tf.argmax(tf.reduce_mean(self.Qout, axis=2), 1)
 
-        # A = tf.reshape(A, (-1, self.a_size, self.num_quant))
-        # A -= tf.reduce_mean(A, axis=1, keep_dims=True)
-        # self.Qout = A + tf.reshape(V, (-1, 1, self.num_quant))
-
-        self.Qout = V + (A - tf.reduce_mean(A, axis=1, keepdims=True))
-        # self.predict = tf.argmax(tf.reduce_mean(self.Qout, axis=2), 1)
-        self.predict = tf.argmax(self.Qout, 1)
         self.action = self.predict[-1]
 
     def lstm_from_conv(self, conv_res):
@@ -147,33 +150,51 @@ class Qnetwork():
         return actions
 
     def construct_Q_and_doubleTargetQ(self):
-        # TODO support distributional
         # in order to do a single pass, we set the first part of the batch
         # to be S, and the second half of the batch to be S_next
         Q_s, Q_s_next = tf.split(self.Qout, 2)
         
         # select action using main network, using Q values from target network
-        Q       = self.select_actions(Q_s,                      self.transition_actions)
-        targetQ = self.select_actions(self.target_network.Qout, tf.argmax(Q_s_next, 1))
+        Q       = self.select_actions(Q_s, self.transition_actions)
+        targetQ = self.select_actions(self.target_network.Qout, tf.argmax(Q_s_next, 1, output_type=tf.int32))
+        
+        # Q = tfprint(Q, 'Q')
+        # targetQ = tfprint(targetQ, 'targetQ')
 
         # here goes BELLMAN
         target = (self.transition_rewards + 
                   0.99 * targetQ * (- self.transition_terminals + 1))
         return Q, tf.stop_gradient(target)
 
-    def construct_target_and_loss(self, lstm=False):
+    def construct_distQ_and_doubleTargetQ(self):
+        Q_s, Q_s_next = tf.split(self.Qout, 2)
+        
+
+
+    def construct_target_and_loss(self):
         # where target and loss are computed
         self.construct_training_inputs()
         Q, targetQ = self.construct_Q_and_doubleTargetQ()
 
         # For DRQN,
         # only train on first half of every trace per Lample & Chatlot 2016
-        if lstm:
-            targetQ = discard_first_half_trace(targetQ)
-            Q       = discard_first_half_trace(Q)
         
-        self.loss = tf.losses.huber_loss(Q, targetQ)
+        self.loss = self.construct_loss(Q, targetQ)
         self.RMSprop_trainer(self.loss)
+
+
+    def construct_loss(self, Q, targetQ):
+        if self.distributional:
+            loss = self.quantile_dist_loss(Q, targetQ)
+        else:
+            if self.lstm:
+                targetQ = self.discard_first_half_trace(targetQ)
+                Q       = self.discard_first_half_trace(Q)
+            loss = tf.losses.huber_loss(Q, targetQ)
+        
+        if self.autoencode:
+            pass # TODO
+        return loss
         
 
     def RMSprop_trainer(self, loss):
@@ -200,13 +221,48 @@ class Qnetwork():
     def select_actions(self, Q_values, actions):
         # Q_values: (batch_size, a_size, num_quant)
         # actions: (batch_size,)
-        return tf.reduce_sum(Q_values * self.one_hot(actions), axis=1)
+        return tf.gather_nd(Q_values,
+            tf.transpose(tf.stack([tf.range(tf.shape(actions)[0]), actions])))
 
     def discard_first_half_trace(self, batch):
         # batch shape: (batch_size * trace_length,)
-        traces = tf.reshape(batch, (self.batch_size, self.trace_length))
+        traces = tf.reshape(batch, (-1, self.trace_length, self.num_quant))
         _, traces = tf.split(traces, 2, axis=1)
         return traces
+
+    @staticmethod
+    def huber_loss(residual, delta=1.0):
+        residual = tf.abs(residual)
+        # condition = tf.less(residual, delta)
+        small_res = 0.5 * tf.square(residual) * tf.cast(residual <= delta, tf.float32)
+        large_res = delta * residual - 0.5 * tf.square(delta) * tf.cast(residual > delta, tf.float32)
+        return small_res + large_res
+
+    def quantile_dist_loss(self, dist, target_dist):
+        # dist.shape and target_dist.shape: (batch_size, num_quantile)
+        J = tf.map_fn(lambda b: self.rep_row(b, self.num_quant), target_dist)
+        I = tf.map_fn(lambda b: tf.transpose(self.rep_row(b, self.num_quant)), dist)
+        residual = J - I
+        I_indexes = tf.map_fn(
+            lambda x: self.rep_row(tf.range(self.num_quant), self.num_quant),
+            tf.range(self.batch_size/2 * self.trace_length))
+
+        tau = (2 * I_indexes + 1) / (2 * self.num_quant) # evenly spaced from 0 to 1
+        
+        residual = self.huber_loss(residual)
+        residual_counterweights = tf.cast(tau, tf.float32) - tf.cast(residual < 0, tf.float32)
+
+        losses = tf.reduce_mean(residual * residual_counterweights, axis=1)
+        
+        return tf.reduce_sum(self.discard_first_half_trace(losses))
+
+    @property
+    def ZERO_STATE():
+        return (np.zeros((1, self.h_size)),) * 2
+
+    @property
+    def lstm(self):
+        return self.model.endswith('drqn')
 
     @property
     def adrqn(self):
@@ -215,10 +271,6 @@ class Qnetwork():
     @property
     def distributional(self):
         return self.model.startswith('dist')
-
-    @property
-    def ZERO_STATE(self):
-        return (np.zeros((1, self.h_size)),) * 2
     ###########################################################################
     # Exposed Methods (used when training agents)
     ###########################################################################
