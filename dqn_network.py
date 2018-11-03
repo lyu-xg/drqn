@@ -13,7 +13,7 @@ class Qnetwork():
             h_size, a_size, stack_size, model, train_batch_size, train_trace_length
 
         # self.adrqn = self.model.endswith('adrqn')
-        self.num_quant = kwargs.get('num_quant', 1)
+        self.num_quant = kwargs.get('num_quant', 0) or 1
         self.autoencode = kwargs.get('autoencode', False)
 
         # expected inputs        
@@ -29,7 +29,7 @@ class Qnetwork():
 
         if scopeName == 'main':
             self.target_network = Qnetwork(h_size, a_size, stack_size, 'target',
-                                           model=model, model_kwargs=model_kwargs, num_quant=self.num_quant)
+                                           model=model, model_kwargs=model_kwargs, num_quant=kwargs.get('num_quant', 0))
             self.construct_target_and_loss()
             self.construct_target_update_ops()
 
@@ -155,30 +155,28 @@ class Qnetwork():
         # in order to do a single pass, we set the first part of the batch
         # to be S, and the second half of the batch to be S_next
         Q_s, Q_s_next = tf.split(self.Qout, 2)
+        self.train_len_range = tf.constant(list(range(self.train_batch_size * self.train_trace_length)))
 
         double_actions = tf.argmax(Q_s_next, 1, output_type=tf.int32) if not self.distributional \
                     else tf.argmax(tf.split(self.Qout_mean, 2)[1], 1, output_type=tf.int32)
         # select action using main network, using Q values from target network
         Q       = self.select_actions(Q_s, self.transition_actions)
         targetQ = self.select_actions(self.target_network.Qout, double_actions)
-        
-        # Q = tfprint(Q, 'Q')
-        # targetQ = tfprint(targetQ, 'targetQ')
+
+        R = tf.reshape(self.transition_rewards,   (-1 ,1)) if self.distributional else self.transition_rewards
+        T = tf.reshape(self.transition_terminals, (-1, 1)) if self.distributional else self.transition_terminals
 
         # here goes BELLMAN
-        target = (tf.reshape(self.transition_rewards, (-1,1)) + 
-                  0.99 * targetQ * (- tf.reshape(self.transition_terminals, (-1,1)) + 1))
+        target = (R + 0.99 * targetQ * (- T + 1))
         return Q, tf.stop_gradient(target)
-
-    def construct_distQ_and_doubleTargetQ(self):
-        Q_s, Q_s_next = tf.split(self.Qout, 2)
-        
-
 
     def construct_target_and_loss(self):
         # where target and loss are computed
         self.construct_training_inputs()
         Q, targetQ = self.construct_Q_and_doubleTargetQ()
+
+        # Q = tfprint(Q, msg='Q ')
+        # targetQ = tfprint(targetQ, msg='targetQ ')
 
         # For DRQN,
         # only train on first half of every trace per Lample & Chatlot 2016
@@ -230,7 +228,7 @@ class Qnetwork():
         # Q_values: (batch_size, a_size, num_quant)
         # actions: (batch_size,)
         return tf.gather_nd(Q_values,
-            tf.transpose(tf.stack([tf.constant(list(range(self.train_batch_size*self.train_trace_length))), actions])))
+            tf.transpose(tf.stack([self.train_len_range, actions])))
 
     def discard_first_half_trace(self, batch):
         # batch shape: (batch_size * trace_length,)
@@ -263,8 +261,10 @@ class Qnetwork():
         for b in range(remaing_dist_len):
             residual = self.rep_row(target_dist[b]) - tf.transpose(self.rep_row(dist[b]))
             residual_countweights = tau - tf.cast(residual < 0, tf.float32)
-            losses.append(tf.reduce_mean(self.huber_loss(residual) * residual_countweights))
+            losses.append(tf.reduce_mean(self.huber_loss(residual) * tf.abs(residual_countweights)))
 
+        tf.summary.histogram('dist', dist[-1])
+        tf.summary.histogram('target dist', target_dist[-1])
 
         # dist.shape and target_dist.shape: (batch_size, num_quantile)
         # J = tf.map_fn(lambda b: self.rep_row(b, self.num_quant), target_dist)
