@@ -20,7 +20,8 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
     model = 'drqn' if not use_actions else 'adrqn'
     if num_quant:
         model = 'dist-' + model
-    KICKSTART_EXP_BUF_FILE = 'cache/{}trace_buf_random_policy_{}.p'.format('action_' if use_actions else '', pretrain_steps)
+    KICKSTART_EXP_BUF_FILE = 'cache/{}trace_buf_random_policy_{}_{}.p'.format('action_' if use_actions else '', env_name, pretrain_steps)
+    ExpBuf = FixedTraceBuf if not use_actions else FixedActionTraceBuf
 
     model_args = {}
     identity = 'stack={},env={},mod={},h_size={}'.format(
@@ -29,7 +30,6 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
         identity += ',quantile={}'.format(num_quant)
     if use_actions:
         identity += ',action_dim={}'.format(use_actions)
-        FixedTraceBuf = FixedActionTraceBuf
         model_args['action_hidden_size'] = use_actions
     print(identity)
 
@@ -37,7 +37,7 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
 
     env = Env(env_name=env_name, skip=4)
     
-    mainQN = Qnetwork(h_size, env.n_actions, 1, 'main', model=model, model_kwargs=model_args)
+    mainQN = Qnetwork(h_size, env.n_actions, 1, 'main', train_batch_size=batch_size, model=model, model_kwargs=model_args, num_quant=num_quant)
     saver = tf.train.Saver(max_to_keep=5)
 
     summary_writer = tf.summary.FileWriter('./log/' + identity, mainQN.sess.graph)
@@ -92,7 +92,6 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
         prev_life_count = life_count
 
         if not i:
-            start_time = time.time()
             util.save(exp_buf, KICKSTART_EXP_BUF_FILE)
 
 
@@ -119,8 +118,11 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
             mainQN.update_target_network()
             cur_time = time.time()
             print(i, identity)
-            print('[{}{}:{}] took {} seconds to {} steps'.format(
-                model, trace_length, i, cur_time-start_time, target_update_freq), flush=1)
+            try:
+                print('[{}{}:{}K] took {} seconds to {} steps'.format(
+                    model, trace_length, i//1000, cur_time-start_time, target_update_freq), flush=1)
+            except:
+                pass
             start_time = cur_time
 
         # Evaluate
@@ -154,7 +156,7 @@ def evaluate(mainQN, env_name, skip=4, scenario_count=5, is_render=False):
     res = np.array([total_scenario_reward() for _ in range(scenario_count)])
     res_flicker = np.array([total_scenario_reward(flicker=.5) for _ in range(scenario_count)])
 
-    print(time.time() - start_time, 'seconds to evaluate', flush=1)
+    print((time.time() - start_time)//1, 'seconds to evaluate', flush=1)
     print(res, res_flicker)
     print('Eval mean', np.mean(res), np.mean(res_flicker))
     return np.mean(res), np.std(res), np.mean(res_flicker), np.std(res_flicker)

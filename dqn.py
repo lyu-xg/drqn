@@ -37,7 +37,7 @@ def train(stack_length, render_eval=False, h_size=512, target_update_freq=10000,
     tf.reset_default_graph()
 
     # loads of side effect! e.g. initialize session, creating graph, etc.
-    mainQN = Qnetwork(h_size, env.n_actions, stack_length, 'main')
+    mainQN = Qnetwork(h_size, env.n_actions, stack_length, 'main', train_batch_size=batch_size)
     
     saver = tf.train.Saver(max_to_keep=5)
     summary_writer = tf.summary.FileWriter('./log/' + identity, mainQN.sess.graph)
@@ -102,8 +102,8 @@ def train(stack_length, render_eval=False, h_size=512, target_update_freq=10000,
         if not i % target_update_freq:
             mainQN.update_target_network()
             cur_time = util.time()
-            print('[{}{}:{}] took {} seconds to {} steps'.format(
-                'dqn', stack_length, i, cur_time-start_time, target_update_freq), flush=1)
+            print('[{}{}:{}K] took {} seconds to {} steps'.format(
+                'dqn', stack_length, i//10000, (cur_time-start_time)//1, target_update_freq), flush=1)
             start_time = cur_time
 
         #　TRAIN
@@ -142,7 +142,7 @@ def evaluate(mainQN, env_name, skip=4, scenario_count=5, is_render=False):
         return R
 
     res = np.array([total_scenario_reward() for _ in range(scenario_count)])
-    print(util.time() - start_time, 'seconds to evaluate', flush=1)
+    print((util.time() - start_time)//2, 'seconds to evaluate', flush=1)
     print('Eval:', res, 'mean =', np.mean(res))
     return np.mean(res), np.std(res)
 
