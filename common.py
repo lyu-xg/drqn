@@ -33,6 +33,12 @@ def save(obj, filename):
 def load(filename):
     return pickle.load(open(filename, 'rb'))
 
+def unit_convert(i):
+    if i // MILLION:
+        return '{}M'.format(i/MILLION)
+    else:
+        return '{}K'.format(i/1000)
+
 def checkpoint(sess, saver, identity, *args):
     print('checkpointing.')
     ckpt_dir = checkpoint_dir(identity)

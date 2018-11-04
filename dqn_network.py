@@ -8,7 +8,7 @@ def tfprint(op, msg):
 
 class Qnetwork():
     def __init__(self, h_size, a_size, stack_size, scopeName, train_batch_size=32, \
-                 train_trace_length=10, model='dqn', model_kwargs={}, **kwargs):
+                 train_trace_length=1, model='dqn', model_kwargs={}, **kwargs):
         self.h_size, self.a_size, self.stack_size, self.model, self.train_batch_size, self.train_trace_length= \
             h_size, a_size, stack_size, model, train_batch_size, train_trace_length
 

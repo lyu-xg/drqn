@@ -102,8 +102,8 @@ def train(stack_length, render_eval=False, h_size=512, target_update_freq=10000,
         if not i % target_update_freq:
             mainQN.update_target_network()
             cur_time = util.time()
-            print('[{}{}:{}K] took {} seconds to {} steps'.format(
-                'dqn', stack_length, i//10000, (cur_time-start_time)//1, target_update_freq), flush=1)
+            print('[{}{}:{}] took {} seconds to {} steps'.format(
+                'dqn', stack_length, util.unit_convert(i), (cur_time-start_time)//1, target_update_freq), flush=1)
             start_time = cur_time
 
         #　TRAIN

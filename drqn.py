@@ -37,7 +37,8 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
 
     env = Env(env_name=env_name, skip=4)
     
-    mainQN = Qnetwork(h_size, env.n_actions, 1, 'main', train_batch_size=batch_size, model=model, model_kwargs=model_args, num_quant=num_quant)
+    mainQN = Qnetwork(h_size, env.n_actions, 1, 'main', train_batch_size=batch_size, 
+        model=model, train_trace_length=trace_length, model_kwargs=model_args, num_quant=num_quant)
     saver = tf.train.Saver(max_to_keep=5)
 
     summary_writer = tf.summary.FileWriter('./log/' + identity, mainQN.sess.graph)
@@ -120,7 +121,7 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
             print(i, identity)
             try:
                 print('[{}{}:{}K] took {} seconds to {} steps'.format(
-                    model, trace_length, i//1000, cur_time-start_time, target_update_freq), flush=1)
+                    model, trace_length, util.unit_convert(i), cur_time-start_time, target_update_freq), flush=1)
             except:
                 pass
             start_time = cur_time
