@@ -35,7 +35,7 @@ RUNS = [
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('-c', '--run_config', action='store', type=int, default=-1)
-    train, config = RUNS[parser.run_config]
+    train, config = RUNS[parser.parse_args().run_config]
     train(**config)
 
 if __name__ == '__main__':
