@@ -11,7 +11,7 @@ from myenv import Env
 from dqn_network import Qnetwork
 
 
-def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
+def train(trace_length=10, render_eval=False, h_size=512, target_update_freq=10000,
           ckpt_freq=500000, summary_freq=1000, eval_freq=10000,
           batch_size=32, env_name='Pong', total_iteration=5e7, use_actions=0,
           pretrain_steps=50000, num_quant=0):
@@ -20,7 +20,7 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
     model = 'drqn' if not use_actions else 'adrqn'
     if num_quant:
         model = 'dist-' + model
-    KICKSTART_EXP_BUF_FILE = 'cache/{}trace_buf_random_policy_{}_{}.p'.format('action_' if use_actions else '', env_name, pretrain_steps)
+    KICKSTART_EXP_BUF_FILE = 'cache/exp_buf_random_policy_{}_{}_{}.p'.format(model, env_name, pretrain_steps)
     ExpBuf = FixedTraceBuf if not use_actions else FixedActionTraceBuf
 
     model_args = {}
@@ -120,8 +120,8 @@ def train(trace_length, render_eval=False, h_size=512, target_update_freq=10000,
             cur_time = time.time()
             print(i, identity)
             try:
-                print('[{}{}:{}K] took {} seconds to {} steps'.format(
-                    model, trace_length, util.unit_convert(i), cur_time-start_time, target_update_freq), flush=1)
+                print('[{}:{}:{}K] took {} seconds to {} steps'.format(
+                    model, env_name, util.unit_convert(i), int(cur_time-start_time), target_update_freq), flush=1)
             except:
                 pass
             start_time = cur_time
