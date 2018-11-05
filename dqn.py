@@ -147,13 +147,20 @@ def evaluate(mainQN, env_name, skip=4, scenario_count=5, is_render=False):
     return np.mean(res), np.std(res)
 
 
+from config import RUNS
 def main():
     signal.signal(signal.SIGINT, util.signal_handler)
     parser = argparse.ArgumentParser()
     parser.add_argument('-t', '--stack_length', action='store', type=int, default=4)
     parser.add_argument('-e', '--env_name', action='store', default='Pong')
-    train(**vars(parser.parse_args()))
-
+    parser.add_argument('-c', '--run_config', action='store', type=int, default=-1)
+    args = vars(parser.parse_args())
+    print(args)
+    if args['run_config'] >= 0:
+        args.update(RUNS[args['run_config']])
+        del args['run_config']
+    print(args)
+    train(**args)
 
 if __name__ == '__main__':
     main()
