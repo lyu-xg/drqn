@@ -88,7 +88,7 @@ def train(stack_length=4, render_eval=False, h_size=512, target_update_freq=1000
 
         if not i:
             start_time = util.time()
-            util.pickle.dump(exp_buf, open(KICKSTART_EXP_BUF_FILE, 'wb'))
+            # util.pickle.dump(exp_buf, open(KICKSTART_EXP_BUF_FILE, 'wb'))
             
         if i <= 0: continue
 

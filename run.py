@@ -3,7 +3,7 @@ from drqn import train as drqn_train
 from dqn import train as dqn_train
 
 RUNS = [
-    (drqn_train, {'num_quant': 128, 'env_name': 'Asteroids'}),
+    # (drqn_train, {'num_quant': 128, 'env_name': 'Asteroids'}),
 
     # (drqn_train, {'env_name': 'Pong'}),
     # (drqn_train, {'env_name': 'Frostbite'}),
@@ -15,10 +15,10 @@ RUNS = [
     (dqn_train, {'env_name': 'MsPacman'}),
     (dqn_train, {'env_name': 'Asteroids'}),
 
-    (dqn_train, {'num_quant': 128, 'env_name': 'flicker@.5:Pong'}),
-    (dqn_train, {'num_quant': 128, 'env_name': 'flicker@.5:Frostbite'}),
-    (dqn_train, {'num_quant': 128, 'env_name': 'flicker@.5:MsPacman'}),
-    (dqn_train, {'num_quant': 128, 'env_name': 'flicker@.5:Asteroids'}),
+    (drqn_train, {'num_quant': 128, 'env_name': 'flicker@.5:Pong'}),
+    (drqn_train, {'num_quant': 128, 'env_name': 'flicker@.5:Frostbite'}),
+    (drqn_train, {'num_quant': 128, 'env_name': 'flicker@.5:MsPacman'}),
+    (drqn_train, {'num_quant': 128, 'env_name': 'flicker@.5:Asteroids'}),
 
     # (drqn_train, {'env_name': 'flicker@.5:Pong'}),
     # (drqn_train, {'env_name': 'flicker@.5:Frostbite'}),
