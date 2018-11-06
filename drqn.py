@@ -12,11 +12,12 @@ from dqn_network import Qnetwork
 
 
 def train(trace_length=10, render_eval=False, h_size=512, target_update_freq=10000,
-          ckpt_freq=500000, summary_freq=1000, eval_freq=10000,
+          ckpt_freq=500000, summary_freq=1000, eval_freq=10000,  discovery=False,
           batch_size=32, env_name='Pong', total_iteration=5e7, use_actions=0,
           pretrain_steps=50000, num_quant=0):
     # network = dist_Qnetwork if num_quant else Qnetwork
     # env_name += 'NoFrameskip-v4'
+    absolute_start_time = time.time()
     model = 'drqn' if not use_actions else 'adrqn'
     if num_quant:
         model = 'dist-' + model
@@ -95,6 +96,8 @@ def train(trace_length=10, render_eval=False, h_size=512, target_update_freq=100
         if not i:
             util.save(exp_buf, KICKSTART_EXP_BUF_FILE)
 
+        if discovery and time.time() - absolute_start_time > 85500: # 23 hours and 45 minutes
+            util.Exiting = 1
 
         if util.Exiting or not i % ckpt_freq:
             util.checkpoint(mainQN.sess, saver, identity,

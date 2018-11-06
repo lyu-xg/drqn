@@ -27,8 +27,9 @@ def reset(stack_length, env, frame_buf):
 
 def train(stack_length=4, render_eval=False, h_size=512, target_update_freq=10000,
           ckpt_freq=500000, summary_freq=1000, eval_freq=10000,
-          batch_size=32, env_name='Pong', total_iteration=5e7,
+          batch_size=32, env_name='Pong', total_iteration=5e7, discovery=False,
           pretrain_steps=50000):
+    absolute_start_time = time.time()
     # KICKSTART_EXP_BUF_FILE = 'cache/stack_buf_random_policy_{}.p'.format(pretrain_steps)
     identity = 'stack={},env={},mod={}'.format(stack_length, env_name, 'dqn')
 
@@ -91,6 +92,9 @@ def train(stack_length=4, render_eval=False, h_size=512, target_update_freq=1000
             # util.pickle.dump(exp_buf, open(KICKSTART_EXP_BUF_FILE, 'wb'))
             
         if i <= 0: continue
+
+        if dicvoery and time.time() - absolute_start_time > 85500: # 23 hours and 45 minutes
+            util.Exiting = 1
 
         if util.Exiting or not i % ckpt_freq:
             util.checkpoint(mainQN.sess, saver, identity,
