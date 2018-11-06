@@ -25,7 +25,7 @@ def reset(stack_length, env, frame_buf):
     return R, lives
     
 
-def train(stack_length, render_eval=False, h_size=512, target_update_freq=10000,
+def train(stack_length=4, render_eval=False, h_size=512, target_update_freq=10000,
           ckpt_freq=500000, summary_freq=1000, eval_freq=10000,
           batch_size=32, env_name='Pong', total_iteration=5e7,
           pretrain_steps=50000):

@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --job-name=drqn0-21
+#SBATCH --job-name=dqn
 #SBATCH --output=drqn.out
 #SBATCH --exclusive
 #SBATCH --cpus-per-task=8
@@ -7,7 +7,7 @@
 #SBATCH --mem-per-cpu=8g
 #SBATCH --gres=gpu:1 
 #SBATCH --partition=gpu 
-#SBATCH --array=0-21
+#SBATCH --array=0-16
 
 cd /scratch/lu.xue/drqn
 
