@@ -648,3 +648,163 @@ Eval mean -20.8 -21.0
 [drqn:flicker@.5:Pong:160.0KK] took 1108 seconds to 10000 steps
 47.0 seconds to evaluate
 85.0 seconds to evaluate
+[530. 430. 730. 580. 240.] [1510. 1530.  930.  630.  580.]
+Eval mean 502.0 1036.0
+160000 stack=10,env=Asteroids,mod=drqn,h_size=512
+[drqn:Asteroids:160.0KK] took 1104 seconds to 10000 steps
+65.0 seconds to evaluate
+[70. 70. 80. 80. 70.] [120.  60.  50. 110.  60.]
+Eval mean 74.0 80.0
+170000 stack=10,env=flicker@.5:Frostbite,mod=drqn,h_size=512
+[drqn:flicker@.5:Frostbite:170.0KK] took 1068 seconds to 10000 steps
+[180. 200. 220. 170. 200.] [190. 190. 140. 200. 200.]
+Eval mean 194.0 184.0
+210000 stack=10,env=Frostbite,mod=drqn,h_size=512
+[drqn:Frostbite:210.0KK] took 1105 seconds to 10000 steps
+41.0 seconds to evaluate
+55.0 seconds to evaluate
+[ 440. 1110.  210.  310.  430.] [250. 460. 280. 380. 400.]
+Eval mean 500.0 354.0
+170000 stack=10,env=flicker@.5:MsPacman,mod=drqn,h_size=512
+[drqn:flicker@.5:MsPacman:170.0KK] took 1071 seconds to 10000 steps
+54.0 seconds to evaluate
+[ 260.  780. 1300.  580.  780.] [ 580.  330. 1030. 1300.  730.]
+Eval mean 740.0 794.0
+170000 stack=10,env=flicker@.5:Asteroids,mod=drqn,h_size=512
+[drqn:flicker@.5:Asteroids:170.0KK] took 1087 seconds to 10000 steps
+147.0 seconds to evaluate
+[320. 220. 360. 390. 240.] [120. 140. 200. 350.  60.]
+Eval mean 306.0 174.0
+170000 stack=10,env=MsPacman,mod=drqn,h_size=512
+[drqn:MsPacman:170.0KK] took 1098 seconds to 10000 steps
+48.0 seconds to evaluate
+[-21. -21. -21. -20. -21.] [-21. -21. -19. -21. -21.]
+Eval mean -20.8 -20.6
+170000 stack=10,env=flicker@.5:Pong,mod=drqn,h_size=512
+[drqn:flicker@.5:Pong:170.0KK] took 1101 seconds to 10000 steps
+86.0 seconds to evaluate
+[1340.  560. 1340.  230.  310.] [830. 480. 780. 430. 830.]
+Eval mean 756.0 670.0
+170000 stack=10,env=Asteroids,mod=drqn,h_size=512
+[drqn:Asteroids:170.0KK] took 1112 seconds to 10000 steps
+83.0 seconds to evaluate
+[90. 50. 90. 60. 70.] [50. 70. 60. 90. 70.]
+Eval mean 72.0 68.0
+180000 stack=10,env=flicker@.5:Frostbite,mod=drqn,h_size=512
+[drqn:flicker@.5:Frostbite:180.0KK] took 1067 seconds to 10000 steps
+38.0 seconds to evaluate
+[ 230.  180.  130. 1150.  210.] [190. 230. 220. 240. 190.]
+Eval mean 380.0 214.0
+220000 stack=10,env=Frostbite,mod=drqn,h_size=512
+[drqn:Frostbite:220.0KK] took 1115 seconds to 10000 steps
+46.0 seconds to evaluate
+[330. 930. 620. 340. 180.] [1730.  210.  280.  200.  310.]
+Eval mean 480.0 546.0
+180000 stack=10,env=flicker@.5:MsPacman,mod=drqn,h_size=512
+[drqn:flicker@.5:MsPacman:180.0KK] took 1066 seconds to 10000 steps
+53.0 seconds to evaluate
+[1300.  780. 1440. 1340.  460.] [1340. 1400. 1300. 1320.  430.]
+Eval mean 1064.0 1158.0
+180000 stack=10,env=flicker@.5:Asteroids,mod=drqn,h_size=512
+[drqn:flicker@.5:Asteroids:180.0KK] took 1155 seconds to 10000 steps
+70.0 seconds to evaluate
+[350. 490.  80. 470. 210.] [210. 270. 240. 910. 240.]
+Eval mean 320.0 374.0
+180000 stack=10,env=MsPacman,mod=drqn,h_size=512
+[drqn:MsPacman:180.0KK] took 1101 seconds to 10000 steps
+44.0 seconds to evaluate
+[-20. -21. -21. -21. -20.] [-20. -21. -20. -20. -21.]
+Eval mean -20.6 -20.4
+180000 stack=10,env=flicker@.5:Pong,mod=drqn,h_size=512
+[drqn:flicker@.5:Pong:180.0KK] took 1105 seconds to 10000 steps
+92.0 seconds to evaluate
+[ 780.  730. 1180.  780. 1510.] [1370.  580. 1630.  430.  680.]
+Eval mean 996.0 938.0
+180000 stack=10,env=Asteroids,mod=drqn,h_size=512
+[drqn:Asteroids:180.0KK] took 1131 seconds to 10000 steps
+[ 50.  50.  60. 110.  60.] [70. 70. 80. 80. 90.]
+Eval mean 66.0 78.0
+190000 stack=10,env=flicker@.5:Frostbite,mod=drqn,h_size=512
+[drqn:flicker@.5:Frostbite:190.0KK] took 1064 seconds to 10000 steps
+56.0 seconds to evaluate
+43.0 seconds to evaluate
+[190. 160.  80. 210. 190.] [170. 100. 120. 180. 150.]
+Eval mean 166.0 144.0
+230000 stack=10,env=Frostbite,mod=drqn,h_size=512
+[drqn:Frostbite:230.0KK] took 1104 seconds to 10000 steps
+47.0 seconds to evaluate
+[340. 400. 390. 430. 430.] [240. 390. 260. 190. 120.]
+Eval mean 398.0 240.0
+190000 stack=10,env=flicker@.5:MsPacman,mod=drqn,h_size=512
+[drqn:flicker@.5:MsPacman:190.0KK] took 1071 seconds to 10000 steps
+53.0 seconds to evaluate
+[ 830.  480.  930. 1390.  480.] [ 530.  780.  280. 1580.  680.]
+Eval mean 822.0 770.0
+190000 stack=10,env=flicker@.5:Asteroids,mod=drqn,h_size=512
+[drqn:flicker@.5:Asteroids:190.0KK] took 1089 seconds to 10000 steps
+64.0 seconds to evaluate
+[270. 280. 640. 130. 410.] [200. 100. 270. 130. 150.]
+Eval mean 346.0 170.0
+190000 stack=10,env=MsPacman,mod=drqn,h_size=512
+[drqn:MsPacman:190.0KK] took 1101 seconds to 10000 steps
+43.0 seconds to evaluate
+[-21. -20. -20. -20. -21.] [-21. -21. -20. -20. -21.]
+Eval mean -20.4 -20.6
+190000 stack=10,env=flicker@.5:Pong,mod=drqn,h_size=512
+[drqn:flicker@.5:Pong:190.0KK] took 1120 seconds to 10000 steps
+77.0 seconds to evaluate
+[ 280.  530.  630. 1320. 1180.] [ 580.  730. 1980.  630.  430.]
+Eval mean 788.0 870.0
+190000 stack=10,env=Asteroids,mod=drqn,h_size=512
+[drqn:Asteroids:190.0KK] took 1101 seconds to 10000 steps
+[ 70. 120.  80. 160.  90.] [ 40.  60. 130.  70. 100.]
+Eval mean 104.0 80.0
+200000 stack=10,env=flicker@.5:Frostbite,mod=drqn,h_size=512
+[drqn:flicker@.5:Frostbite:200.0KK] took 1068 seconds to 10000 steps
+44.0 seconds to evaluate
+57.0 seconds to evaluate
+[190. 220. 180. 190. 180.] [190. 180. 110. 190. 150.]
+Eval mean 192.0 164.0
+240000 stack=10,env=Frostbite,mod=drqn,h_size=512
+[drqn:Frostbite:240.0KK] took 1111 seconds to 10000 steps
+[370. 320. 450. 270. 370.] [980. 280. 380. 360. 230.]
+Eval mean 356.0 446.0
+200000 stack=10,env=flicker@.5:MsPacman,mod=drqn,h_size=512
+[drqn:flicker@.5:MsPacman:200.0KK] took 1070 seconds to 10000 steps
+47.0 seconds to evaluate
+50.0 seconds to evaluate
+[ 310. 1320. 1450.  730.  830.] [ 580.  380. 1370.  830.  730.]
+Eval mean 928.0 778.0
+200000 stack=10,env=flicker@.5:Asteroids,mod=drqn,h_size=512
+[drqn:flicker@.5:Asteroids:200.0KK] took 1080 seconds to 10000 steps
+71.0 seconds to evaluate
+[380. 680. 170. 270. 320.] [ 210.  130.  300. 1080.  260.]
+Eval mean 364.0 396.0
+200000 stack=10,env=MsPacman,mod=drqn,h_size=512
+[drqn:MsPacman:200.0KK] took 1108 seconds to 10000 steps
+43.0 seconds to evaluate
+[-21. -21. -21. -21. -21.] [-21. -21. -21. -21. -21.]
+Eval mean -21.0 -21.0
+200000 stack=10,env=flicker@.5:Pong,mod=drqn,h_size=512
+[drqn:flicker@.5:Pong:200.0KK] took 1097 seconds to 10000 steps
+88.0 seconds to evaluate
+[ 70.  50.  40.  90. 120.] [120.  70. 110.  70. 100.]
+Eval mean 74.0 94.0
+210000 stack=10,env=flicker@.5:Frostbite,mod=drqn,h_size=512
+[drqn:flicker@.5:Frostbite:210.0KK] took 1067 seconds to 10000 steps
+41.0 seconds to evaluate
+[2050.  330.  580.  480. 1030.] [ 180.  930. 1320.  980.  530.]
+Eval mean 894.0 788.0
+200000 stack=10,env=Asteroids,mod=drqn,h_size=512
+[drqn:Asteroids:200.0KK] took 1121 seconds to 10000 steps
+55.0 seconds to evaluate
+[280. 320. 330. 330. 190.] [150. 310. 230. 530. 290.]
+Eval mean 290.0 302.0
+210000 stack=10,env=flicker@.5:MsPacman,mod=drqn,h_size=512
+[drqn:flicker@.5:MsPacman:210.0KK] took 1068 seconds to 10000 steps
+[190. 180. 210. 230. 190.] [180. 180. 160. 210. 180.]
+Eval mean 200.0 182.0
+250000 stack=10,env=Frostbite,mod=drqn,h_size=512
+[drqn:Frostbite:250.0KK] took 1111 seconds to 10000 steps
+49.0 seconds to evaluate
+43.0 seconds to evaluate
