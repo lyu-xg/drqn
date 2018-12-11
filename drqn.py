@@ -34,8 +34,6 @@ def train(trace_length=10, render_eval=False, h_size=512, target_update_freq=100
         model_args['action_hidden_size'] = use_actions
     print(identity)
 
-    train_len = trace_length * batch_size
-
     env = Env(env_name=env_name, skip=4)
     
     mainQN = Qnetwork(h_size, env.n_actions, 1, 'main', train_batch_size=batch_size, 
